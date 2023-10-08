@@ -74,6 +74,10 @@ import ca.gosyer.jui.uicore.components.keyboardHandler
 import ca.gosyer.jui.uicore.resources.stringResource
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.Navigator
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
+
+val ToolbarDefault = ImageVector.Builder(defaultWidth = 24.dp, defaultHeight = 24.dp, viewportWidth = 24f, viewportHeight = 24f).build()
 
 @Composable
 fun Toolbar(
@@ -81,8 +85,9 @@ fun Toolbar(
     navigator: Navigator? = LocalNavigator.current,
     closable: Boolean = (navigator?.size ?: 0) > 1,
     onClose: () -> Unit = { navigator?.pop() },
+    closeIcon: ImageVector = ToolbarDefault,
     modifier: Modifier = Modifier,
-    actions: @Composable () -> List<ActionItem> = { emptyList() },
+    actions: @Composable () -> ImmutableList<Action> = { remember { persistentListOf() } },
     backgroundColor: Color = MaterialTheme.colors.surface, // CustomColors.current.bars,
     contentColor: Color = contentColorFor(backgroundColor), // CustomColors.current.onBars,
     elevation: Dp = Dp.Hairline,
@@ -96,6 +101,7 @@ fun Toolbar(
                 name = name,
                 closable = closable,
                 onClose = onClose,
+                closeIcon = closeIcon,
                 modifier = modifier,
                 actions = actions,
                 backgroundColor = backgroundColor,
@@ -103,13 +109,14 @@ fun Toolbar(
                 elevation = elevation,
                 searchText = searchText,
                 search = search,
-                searchSubmit = searchSubmit
+                searchSubmit = searchSubmit,
             )
         } else {
             ThinToolbar(
                 name = name,
                 closable = closable,
                 onClose = onClose,
+                closeIcon = closeIcon,
                 modifier = modifier,
                 actions = actions,
                 backgroundColor = backgroundColor,
@@ -117,7 +124,7 @@ fun Toolbar(
                 elevation = elevation,
                 searchText = searchText,
                 search = search,
-                searchSubmit = searchSubmit
+                searchSubmit = searchSubmit,
             )
         }
     }
@@ -128,8 +135,9 @@ private fun WideToolbar(
     name: String,
     closable: Boolean,
     onClose: () -> Unit,
+    closeIcon: ImageVector,
     modifier: Modifier,
-    actions: @Composable () -> List<ActionItem> = { emptyList() },
+    actions: @Composable () -> ImmutableList<Action> = { remember { persistentListOf() } },
     backgroundColor: Color,
     contentColor: Color,
     elevation: Dp,
@@ -142,21 +150,21 @@ private fun WideToolbar(
         elevation = elevation,
         shape = RectangleShape,
         color = backgroundColor,
-        contentColor = contentColor
+        contentColor = contentColor,
     ) {
         Row(
             Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp).height(72.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Row(
                 Modifier.fillMaxHeight().animateContentSize(),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 val displayController = LocalDisplayController.current
                 if (displayController != null) {
                     AnimatedVisibility(
-                        !displayController.sideMenuVisible
+                        !displayController.sideMenuVisible,
                     ) {
                         ActionIcon(displayController::openSideMenu, "Open nav", Icons.Rounded.Sort)
                     }
@@ -177,14 +185,14 @@ private fun WideToolbar(
                         onClick = onClick,
                         text = name,
                         icon = icon,
-                        enabled = enabled
+                        enabled = enabled,
                     )
                 }
                 if (closable) {
                     TextActionIcon(
                         onClick = onClose,
                         text = stringResource(MR.strings.action_close),
-                        icon = Icons.Rounded.Close
+                        icon = if (closeIcon === ToolbarDefault) Icons.Rounded.Close else closeIcon,
                     )
                 }
             }
@@ -197,8 +205,9 @@ private fun ThinToolbar(
     name: String,
     closable: Boolean,
     onClose: () -> Unit,
+    closeIcon: ImageVector,
     modifier: Modifier,
-    actions: @Composable () -> List<ActionItem> = { emptyList() },
+    actions: @Composable () -> ImmutableList<Action> = { remember { persistentListOf() } },
     backgroundColor: Color,
     contentColor: Color,
     elevation: Dp,
@@ -218,7 +227,7 @@ private fun ThinToolbar(
         contentColor = contentColor,
         elevation = elevation,
         shape = RectangleShape,
-        modifier = modifier
+        modifier = modifier,
     ) {
         CompositionLocalProvider(LocalContentAlpha provides ContentAlpha.medium) {
             Row(
@@ -226,7 +235,7 @@ private fun ThinToolbar(
                     .padding(AppBarDefaults.ContentPadding)
                     .height(56.dp),
                 horizontalArrangement = Arrangement.Start,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 if (!closable && !searchMode) {
                     Spacer(Modifier.width(12.dp))
@@ -242,11 +251,11 @@ private fun ThinToolbar(
                                     } else {
                                         onClose()
                                     }
-                                }
+                                },
                             ) {
                                 Icon(
-                                    Icons.Rounded.ArrowBack,
-                                    stringResource(MR.strings.action_close)
+                                    if (closeIcon === ToolbarDefault) Icons.Rounded.ArrowBack else closeIcon,
+                                    stringResource(MR.strings.action_close),
                                 )
                             }
                         }
@@ -256,7 +265,7 @@ private fun ThinToolbar(
                 if (searchMode) {
                     Row(
                         Modifier.fillMaxHeight().weight(1f),
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
                         val focusManager = LocalFocusManager.current
                         BasicTextField(
@@ -280,19 +289,19 @@ private fun ThinToolbar(
                                     if (searchText.isNullOrEmpty()) {
                                         Text(
                                             stringResource(MR.strings.action_searching),
-                                            color = LocalTextStyle.current.color.copy(alpha = ContentAlpha.medium)
+                                            color = LocalTextStyle.current.color.copy(alpha = ContentAlpha.medium),
                                         )
                                     }
                                     innerTextField()
                                 }
                             },
-                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search)
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                         )
                     }
                 } else {
                     Row(
                         Modifier.fillMaxHeight().weight(1f),
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
                         ProvideTextStyle(value = MaterialTheme.typography.h6) {
                             CompositionLocalProvider(
@@ -321,7 +330,7 @@ private fun ThinToolbar(
                                 1
                             } else {
                                 3
-                            }
+                            },
                         ) { onClick: () -> Unit, name: String, icon: ImageVector, enabled: Boolean ->
                             IconButton(onClick = onClick, enabled = enabled) {
                                 Icon(icon, name)
@@ -339,7 +348,7 @@ private fun SearchBox(
     contentColor: Color,
     searchText: String?,
     search: ((String) -> Unit)?,
-    searchSubmit: (() -> Unit)?
+    searchSubmit: (() -> Unit)?,
 ) {
     Card(
         Modifier.fillMaxHeight()
@@ -347,7 +356,7 @@ private fun SearchBox(
             .padding(8.dp),
         shape = RoundedCornerShape(4.dp),
         elevation = 2.dp,
-        border = BorderStroke(1.dp, MaterialTheme.colors.primary)
+        border = BorderStroke(1.dp, MaterialTheme.colors.primary),
     ) {
         Box(Modifier.fillMaxSize().padding(8.dp), Alignment.CenterStart) {
             BasicTextField(
@@ -361,7 +370,7 @@ private fun SearchBox(
                     },
                 textStyle = TextStyle(contentColor, 18.sp),
                 cursorBrush = SolidColor(contentColor.copy(alpha = 0.50F)),
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search)
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
             )
         }
     }
@@ -382,11 +391,11 @@ fun TextActionIcon(
                 enabled = enabled,
                 role = Role.Button,
                 interactionSource = interactionSource,
-                indication = rememberRipple(bounded = false, radius = 32.dp)
+                indication = rememberRipple(bounded = false, radius = 32.dp),
             )
             .size(56.dp),
         verticalArrangement = Arrangement.SpaceAround,
-        horizontalAlignment = Alignment.CenterHorizontally
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Icon(
             icon,
@@ -395,7 +404,7 @@ fun TextActionIcon(
                 LocalContentColor.current
             } else {
                 LocalContentColor.current.copy(alpha = ContentAlpha.disabled)
-            }
+            },
         )
         Text(
             text,
@@ -407,7 +416,7 @@ fun TextActionIcon(
                 LocalContentColor.current
             } else {
                 LocalContentColor.current.copy(alpha = ContentAlpha.disabled)
-            }
+            },
         )
     }
 }

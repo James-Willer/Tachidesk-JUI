@@ -6,41 +6,66 @@
 
 package ca.gosyer.jui.ui.reader.loader
 
+import androidx.compose.ui.unit.IntSize
+import ca.gosyer.jui.core.io.SYSTEM
 import ca.gosyer.jui.core.lang.IO
+import ca.gosyer.jui.core.lang.PriorityChannel
 import ca.gosyer.jui.core.lang.throwIfCancellation
-import ca.gosyer.jui.data.reader.ReaderPreferences
-import ca.gosyer.jui.data.server.interactions.ChapterInteractionHandler
+import ca.gosyer.jui.domain.chapter.interactor.GetChapterPage
+import ca.gosyer.jui.domain.reader.service.ReaderPreferences
+import ca.gosyer.jui.ui.base.image.BitmapDecoderFactory
+import ca.gosyer.jui.ui.base.model.StableHolder
 import ca.gosyer.jui.ui.reader.model.ReaderChapter
 import ca.gosyer.jui.ui.reader.model.ReaderPage
-import ca.gosyer.jui.ui.util.compose.toImageBitmap
-import ca.gosyer.jui.ui.util.lang.priorityChannel
+import ca.gosyer.jui.ui.util.lang.toSource
 import cafe.adriel.voyager.core.concurrent.AtomicInt32
+import com.seiko.imageloader.asImageBitmap
+import com.seiko.imageloader.cache.disk.DiskCache
+import com.seiko.imageloader.component.decoder.DecodeResult
+import com.seiko.imageloader.model.DataSource
+import com.seiko.imageloader.model.ImageRequest
+import com.seiko.imageloader.model.ImageResult
+import com.seiko.imageloader.option.Options
 import io.ktor.client.plugins.onDownload
+import io.ktor.client.statement.HttpResponse
+import io.ktor.client.statement.bodyAsChannel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
+import okio.BufferedSource
+import okio.FileSystem
+import okio.buffer
+import okio.use
 import org.lighthousegames.logging.logging
 
 class TachideskPageLoader(
     val chapter: ReaderChapter,
     readerPreferences: ReaderPreferences,
-    chapterHandler: ChapterInteractionHandler
+    private val getChapterPage: GetChapterPage,
+    private val chapterCache: DiskCache,
+    private val bitmapDecoderFactory: BitmapDecoderFactory,
 ) : PageLoader() {
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     /**
      * A channel used to manage requests one by one while allowing priorities.
      */
-    private val channel = priorityChannel<PriorityPage>(scope = scope)
+    private val channel = PriorityChannel<PriorityPage>(
+        scope = scope,
+        comparator = { i1, i2 -> i1.compareTo(i2) },
+    )
 
     /**
      * The amount of pages to preload before stopping
@@ -51,59 +76,125 @@ class TachideskPageLoader(
      * The pages stateflow
      */
     private val pagesFlow by lazy {
-        MutableStateFlow<List<ReaderPage>>(emptyList())
+        MutableStateFlow<PagesState>(PagesState.Loading)
     }
 
     init {
-        repeat(readerPreferences.threads().get()) {
-            scope.launch {
-                while (true) {
-                    try {
-                        for (priorityPage in channel) {
-                            val page = priorityPage.page
-                            log.debug { "Loading page ${page.index}" }
-                            if (page.status.value == ReaderPage.Status.QUEUE) {
-                                chapterHandler
-                                    .getPage(chapter.chapter, page.index) {
-                                        onDownload { bytesSentTotal, contentLength ->
-                                            page.progress.value = (bytesSentTotal.toFloat() / contentLength).coerceAtMost(1.0F)
+        readerPreferences.threads()
+            .stateIn(scope)
+            .mapLatest {
+                coroutineScope {
+                    repeat(it) {
+                        launch {
+                            while (true) {
+                                try {
+                                    for (priorityPage in channel) {
+                                        val page = priorityPage.page
+                                        if (page.status.value == ReaderPage.Status.QUEUE) {
+                                            page.status.value = ReaderPage.Status.WORKING
+                                            fetchImage(page)
                                         }
                                     }
-                                    .onEach {
-                                        page.bitmap.value = it.toImageBitmap()
-                                        page.status.value = ReaderPage.Status.READY
-                                        page.error.value = null
-                                    }
-                                    .catch {
-                                        page.bitmap.value = null
-                                        page.status.value = ReaderPage.Status.ERROR
-                                        page.error.value = it.message
-                                        log.warn(it) { "Error getting image" }
-                                    }
-                                    .flowOn(Dispatchers.IO)
-                                    .collect()
+                                } catch (e: Exception) {
+                                    e.throwIfCancellation()
+                                    log.warn(e) { "Error in loop" }
+                                }
                             }
                         }
-                    } catch (e: Exception) {
-                        e.throwIfCancellation()
-                        log.warn(e) { "Error in loop" }
                     }
                 }
             }
+            .launchIn(scope)
+    }
+
+    private suspend fun fetchImage(page: ReaderPage) {
+        log.debug { "Loading page ${page.index}" }
+        getChapterPage.asFlow(chapter.chapter, page.index) {
+            onDownload { bytesSentTotal, contentLength ->
+                page.progress.value = (bytesSentTotal.toFloat() / contentLength).coerceAtMost(1.0F)
+            }
         }
+            .onEach {
+                putImageInCache(it, page)
+                page.bitmap.value = StableHolder { getImageFromCache(page) }
+                page.status.value = ReaderPage.Status.READY
+                page.error.value = null
+            }
+            .catch {
+                page.bitmap.value = StableHolder(null)
+                page.status.value = ReaderPage.Status.ERROR
+                page.error.value = it.message
+                log.warn(it) { "Failed to get page ${page.index} for chapter ${chapter.chapter.index} for ${chapter.chapter.mangaId}" }
+            }
+            .flowOn(Dispatchers.IO)
+            .collect()
+    }
+
+    private suspend fun putImageInCache(
+        response: HttpResponse,
+        page: ReaderPage,
+    ) {
+        val editor = chapterCache.edit(page.cacheKey)
+            ?: throw Exception("Couldn't open cache")
+        try {
+            FileSystem.SYSTEM.write(editor.data) {
+                response.bodyAsChannel().toSource().use {
+                    writeAll(it)
+                }
+            }
+            editor.commit()
+        } catch (e: Exception) {
+            editor.abortQuietly()
+            throw e
+        }
+    }
+
+    private suspend fun getImageFromCache(page: ReaderPage): ReaderPage.ImageDecodeState {
+        return chapterCache[page.cacheKey]?.use {
+            it.source().use { source ->
+                val decoder = bitmapDecoderFactory.create(
+                    ImageResult.Source(
+                        ImageRequest(Any()),
+                        source,
+                        DataSource.Engine,
+                    ),
+                    Options(),
+                )
+                if (decoder != null) {
+                    runCatching { decoder.decode() as DecodeResult.Bitmap }
+                        .mapCatching {
+                            ReaderPage.ImageDecodeState.Success(
+                                it.bitmap.asImageBitmap().also {
+                                    page.bitmapInfo.value = ReaderPage.BitmapInfo(
+                                        IntSize(it.width, it.height),
+                                    )
+                                },
+                            )
+                        }
+                        .getOrElse {
+                            ReaderPage.ImageDecodeState.FailedToDecode(it)
+                        }
+                } else {
+                    ReaderPage.ImageDecodeState.UnknownDecoder
+                }
+            }
+        } ?: ReaderPage.ImageDecodeState.FailedToGetSnapShot
     }
 
     /**
      * Preloads the given [amount] of pages after the [currentPage] with a lower priority.
      * @return a list of [PriorityPage] that were added to the [channel]
      */
-    private fun preloadNextPages(currentPage: ReaderPage, amount: Int): List<PriorityPage> {
+    private fun preloadNextPages(
+        currentPage: ReaderPage,
+        amount: Int,
+    ): List<PriorityPage> {
         val pageIndex = currentPage.index
-        val pages = currentPage.chapter.pages ?: return emptyList()
-        if (pageIndex == pages.value.lastIndex) return emptyList()
+        val pages = (currentPage.chapter.pages.value as? PagesState.Success)?.pages ?: return emptyList()
+        if (pageIndex >= pages.lastIndex) return emptyList()
 
-        return pages.value
-            .subList(pageIndex + 1, (pageIndex + 1 + amount).coerceAtMost(pages.value.size))
+        return pages
+            .subList(pageIndex + 1, (pageIndex + 1 + amount).coerceAtMost(pages.size))
             .mapNotNull {
                 if (it.status.value == ReaderPage.Status.QUEUE) {
                     PriorityPage(it, 0).also {
@@ -111,22 +202,31 @@ class TachideskPageLoader(
                             channel.send(it)
                         }
                     }
-                } else null
+                } else {
+                    null
+                }
             }
     }
 
-    override fun getPages(): StateFlow<List<ReaderPage>> {
+    override fun getPages(): StateFlow<PagesState> {
         scope.launch {
-            if (pagesFlow.value.isNotEmpty()) return@launch
-            val pageRange = chapter.chapter.pageCount?.let { 0..it.minus(1) } ?: IntRange.EMPTY
-            pagesFlow.value = pageRange.map {
-                ReaderPage(
-                    index = it,
-                    bitmap = MutableStateFlow(null),
-                    progress = MutableStateFlow(0.0F),
-                    status = MutableStateFlow(ReaderPage.Status.QUEUE),
-                    error = MutableStateFlow(null),
-                    chapter = chapter
+            if (pagesFlow.value != PagesState.Loading) return@launch
+            val pageRange = chapter.chapter.pageCount?.let { 0..it.minus(1) }
+            pagesFlow.value = if (pageRange == null || pageRange.isEmpty()) {
+                PagesState.Empty
+            } else {
+                PagesState.Success(
+                    pageRange.map {
+                        ReaderPage(
+                            index = it,
+                            bitmap = MutableStateFlow(StableHolder(null)),
+                            bitmapInfo = MutableStateFlow(null),
+                            progress = MutableStateFlow(0.0F),
+                            status = MutableStateFlow(ReaderPage.Status.QUEUE),
+                            error = MutableStateFlow(null),
+                            chapter = chapter,
+                        )
+                    },
                 )
             }
         }
@@ -167,7 +267,7 @@ class TachideskPageLoader(
      */
     private class PriorityPage(
         val page: ReaderPage,
-        val priority: Int
+        val priority: Int,
     ) : Comparable<PriorityPage> {
         companion object {
             private val idGenerator = AtomicInt32(1)
@@ -189,5 +289,19 @@ class TachideskPageLoader(
 
     private companion object {
         private val log = logging()
+    }
+
+    private val ReaderPage.cacheKey
+        get() = "${chapter.chapter.mangaId}-${chapter.chapter.index}-$index"
+
+    private fun DiskCache.Snapshot.source(): BufferedSource {
+        return FileSystem.SYSTEM.source(data).buffer()
+    }
+
+    private fun DiskCache.Editor.abortQuietly() {
+        try {
+            abort()
+        } catch (_: Exception) {
+        }
     }
 }

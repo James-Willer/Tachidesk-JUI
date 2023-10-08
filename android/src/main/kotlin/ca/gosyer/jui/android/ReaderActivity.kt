@@ -12,19 +12,16 @@ import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.ui.input.key.KeyEvent
-import androidx.compose.ui.input.key.key
-import androidx.lifecycle.lifecycleScope
 import ca.gosyer.jui.ui.base.theme.AppTheme
 import ca.gosyer.jui.ui.reader.ReaderMenu
-import ca.gosyer.jui.ui.reader.supportedKeyList
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.launch
 
 class ReaderActivity : AppCompatActivity() {
-
     companion object {
-        fun newIntent(context: Context, mangaId: Long, chapterIndex: Int): Intent {
+        fun newIntent(
+            context: Context,
+            mangaId: Long,
+            chapterIndex: Int,
+        ): Intent {
             return Intent(context, ReaderActivity::class.java).apply {
                 putExtra("manga", mangaId)
                 putExtra("chapter", chapterIndex)
@@ -33,11 +30,9 @@ class ReaderActivity : AppCompatActivity() {
         }
     }
 
-    private val hotkeyFlow = MutableSharedFlow<KeyEvent>()
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val hooks = AppComponent.getInstance(applicationContext).getHooks()
+        val hooks = AppComponent.getInstance(applicationContext).hooks
 
         val mangaId = intent.extras!!.getLong("manga", -1)
         val chapterIndex = intent.extras!!.getInt("chapter", -1)
@@ -52,26 +47,10 @@ class ReaderActivity : AppCompatActivity() {
                     ReaderMenu(
                         chapterIndex = chapterIndex,
                         mangaId = mangaId,
-                        hotkeyFlow = hotkeyFlow,
-                        onCloseRequest = ::onBackPressed
+                        onCloseRequest = onBackPressedDispatcher::onBackPressed,
                     )
                 }
             }
-        }
-    }
-
-    override fun onKeyUp(keyCode: Int, event: android.view.KeyEvent?): Boolean {
-        @Suppress("KotlinConstantConditions")
-        event ?: return super.onKeyUp(keyCode, event)
-        val composeKeyEvent = KeyEvent(event)
-        lifecycleScope.launch {
-            hotkeyFlow.emit(composeKeyEvent)
-        }
-
-        return if (composeKeyEvent.key in supportedKeyList) {
-            true
-        } else {
-            super.onKeyUp(keyCode, event)
         }
     }
 }

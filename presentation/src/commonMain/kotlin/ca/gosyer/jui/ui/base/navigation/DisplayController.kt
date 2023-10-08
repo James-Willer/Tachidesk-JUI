@@ -30,9 +30,12 @@ class DisplayController(
 }
 
 @Composable
-fun withDisplayController(controller: DisplayController, content: @Composable () -> Unit) {
+fun withDisplayController(
+    controller: DisplayController,
+    content: @Composable () -> Unit,
+) {
     CompositionLocalProvider(
         LocalDisplayController provides controller,
-        content = content
+        content = content,
     )
 }

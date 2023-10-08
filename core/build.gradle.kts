@@ -24,6 +24,9 @@ kotlin {
             }
         }
     }
+    iosX64()
+    iosArm64()
+    iosSimulatorArm64()
 
     sourceSets {
         all {
@@ -38,7 +41,8 @@ kotlin {
             dependencies {
                 api(kotlin("stdlib-common"))
                 api(libs.coroutines.core)
-                api(libs.serialization.json)
+                api(libs.serialization.json.core)
+                api(libs.serialization.json.okio)
                 api(libs.kotlinInject.runtime)
                 api(libs.ktor.core)
                 api(libs.ktor.contentNegotiation)
@@ -49,6 +53,7 @@ kotlin {
                 api(libs.multiplatformSettings.coroutines)
                 api(libs.multiplatformSettings.serialization)
                 api(libs.dateTime)
+                api(libs.kds)
                 api(compose("org.jetbrains.compose.ui:ui-text"))
             }
         }
@@ -59,22 +64,53 @@ kotlin {
             }
         }
 
-        val desktopMain by getting {
+        val jvmMain by creating {
+            dependsOn(commonMain)
             dependencies {
                 api(kotlin("stdlib-jdk8"))
+            }
+        }
+        val jvmTest by creating {
+            dependsOn(commonTest)
+            dependencies {
+                implementation(kotlin("test"))
+            }
+        }
+
+        val desktopMain by getting {
+            dependsOn(jvmMain)
+            dependencies {
                 api(libs.appDirs)
             }
         }
         val desktopTest by getting {
+            dependsOn(jvmTest)
         }
 
         val androidMain by getting {
+            dependsOn(jvmMain)
             dependencies {
-                api(kotlin("stdlib-jdk8"))
                 api(libs.compose.ui.text)
             }
         }
-        val androidTest by getting {
+        val androidUnitTest by getting {
+            dependsOn(jvmTest)
+        }
+
+        val iosMain by creating {
+            dependsOn(commonMain)
+        }
+        val iosTest by creating {
+            dependsOn(commonTest)
+        }
+
+        listOf(
+            "iosX64",
+            "iosArm64",
+            "iosSimulatorArm64",
+        ).forEach {
+            getByName(it + "Main").dependsOn(iosMain)
+            getByName(it + "Test").dependsOn(iosTest)
         }
     }
 }
@@ -86,4 +122,8 @@ dependencies {
 
 buildkonfig {
     packageName = "ca.gosyer.jui.core.build"
+}
+
+android {
+    namespace = "ca.gosyer.jui.core"
 }

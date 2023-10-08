@@ -12,18 +12,26 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.add
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.GridCells
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.lazy.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -39,74 +47,70 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.FilterQuality
-import androidx.compose.ui.text.intl.Locale
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.text.toUpperCase
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import ca.gosyer.jui.data.models.Source
+import ca.gosyer.jui.domain.source.model.Source
 import ca.gosyer.jui.i18n.MR
 import ca.gosyer.jui.ui.base.components.TooltipArea
 import ca.gosyer.jui.ui.base.components.localeToString
 import ca.gosyer.jui.ui.base.navigation.ActionItem
 import ca.gosyer.jui.ui.base.navigation.Toolbar
 import ca.gosyer.jui.ui.extensions.components.LanguageDialog
+import ca.gosyer.jui.ui.main.components.bottomNav
+import ca.gosyer.jui.ui.sources.home.SourceUI
 import ca.gosyer.jui.uicore.components.LoadingScreen
 import ca.gosyer.jui.uicore.components.VerticalScrollbar
 import ca.gosyer.jui.uicore.components.rememberScrollbarAdapter
+import ca.gosyer.jui.uicore.components.rememberVerticalScrollbarAdapter
 import ca.gosyer.jui.uicore.components.scrollbarPadding
-import ca.gosyer.jui.uicore.image.KamelImage
+import ca.gosyer.jui.uicore.image.ImageLoaderImage
+import ca.gosyer.jui.uicore.insets.navigationBars
+import ca.gosyer.jui.uicore.insets.statusBars
 import ca.gosyer.jui.uicore.resources.stringResource
 import com.vanpra.composematerialdialogs.rememberMaterialDialogState
-import io.kamel.image.lazyPainterResource
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.ImmutableSet
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 
 @Composable
 fun SourceHomeScreenContent(
     onAddSource: (Source) -> Unit,
     isLoading: Boolean,
-    sources: List<Source>,
-    languages: Set<String>,
-    sourceLanguages: List<String>,
+    sources: ImmutableList<SourceUI>,
+    languages: ImmutableSet<String>,
+    sourceLanguages: ImmutableList<String>,
     setEnabledLanguages: (Set<String>) -> Unit,
     query: String,
     setQuery: (String) -> Unit,
-    submitSearch: (String) -> Unit
+    submitSearch: (String) -> Unit,
 ) {
     val languageDialogState = rememberMaterialDialogState()
     Scaffold(
+        modifier = Modifier.windowInsetsPadding(
+            WindowInsets.statusBars.add(
+                WindowInsets.navigationBars.only(WindowInsetsSides.Horizontal),
+            ),
+        ),
         topBar = {
             SourceHomeScreenToolbar(
                 openEnabledLanguagesClick = languageDialogState::show,
                 query = query,
                 setQuery = setQuery,
-                submitSearch = submitSearch
+                submitSearch = submitSearch,
             )
-        }
-    ) {
+        },
+    ) { padding ->
         if (sources.isEmpty()) {
             LoadingScreen(isLoading)
         } else {
-            Box(Modifier.fillMaxSize().padding(it), Alignment.TopCenter) {
-                val state = rememberLazyListState()
-                SourceCategory(sources, onAddSource, state)
-                /*val sourcesByLang = sources.groupBy { it.lang.toLowerCase() }.toList()
-                LazyColumn(state = state) {
-                    items(sourcesByLang) { (lang, sources) ->
-                        SourceCategory(
-                            lang,
-                            sources,
-                            onSourceClicked = sourceClicked
-                        )
-                        Spacer(Modifier.height(8.dp))
-                    }
-                }*/
-
-                VerticalScrollbar(
-                    modifier = Modifier.align(Alignment.CenterEnd)
-                        .fillMaxHeight()
-                        .scrollbarPadding(),
-                    adapter = rememberScrollbarAdapter(state)
-                )
+            BoxWithConstraints(Modifier.fillMaxSize().padding(padding), Alignment.TopCenter) {
+                if (maxWidth > 720.dp) {
+                    WideSourcesMenu(sources, onAddSource)
+                } else {
+                    ThinSourcesMenu(sources, onAddSource)
+                }
             }
         }
     }
@@ -118,13 +122,13 @@ fun SourceHomeScreenToolbar(
     openEnabledLanguagesClick: () -> Unit,
     query: String,
     setQuery: (String) -> Unit,
-    submitSearch: (String) -> Unit
+    submitSearch: (String) -> Unit,
 ) {
     Toolbar(
         stringResource(MR.strings.location_sources),
         actions = {
             getActionItems(
-                openEnabledLanguagesClick = openEnabledLanguagesClick
+                openEnabledLanguagesClick = openEnabledLanguagesClick,
             )
         },
         searchText = query,
@@ -133,91 +137,196 @@ fun SourceHomeScreenToolbar(
             if (query.isNotBlank()) {
                 submitSearch(query)
             }
-        }
+        },
     )
 }
 
 @Composable
-fun SourceCategory(
-    sources: List<Source>,
-    onSourceClicked: (Source) -> Unit,
-    state: LazyListState
+fun WideSourcesMenu(
+    sources: ImmutableList<SourceUI>,
+    onAddSource: (Source) -> Unit,
 ) {
-    BoxWithConstraints {
-        if (maxWidth > 720.dp) {
-            LazyVerticalGrid(GridCells.Adaptive(120.dp), state = state) {
-                items(sources) { source ->
-                    WideSourceItem(
-                        source,
-                        onSourceClicked = onSourceClicked
+    Box {
+        val state = rememberLazyGridState()
+        val cells = GridCells.Adaptive(120.dp)
+        LazyVerticalGrid(
+            cells,
+            state = state,
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = WindowInsets.bottomNav.add(
+                WindowInsets.navigationBars.only(
+                    WindowInsetsSides.Bottom,
+                ),
+            ).asPaddingValues(),
+        ) {
+            items(
+                sources,
+                contentType = {
+                    when (it) {
+                        is SourceUI.Header -> "header"
+                        is SourceUI.SourceItem -> "source"
+                    }
+                },
+                key = {
+                    when (it) {
+                        is SourceUI.Header -> it.header
+                        is SourceUI.SourceItem -> it.source.id
+                    }
+                },
+                span = {
+                    when (it) {
+                        is SourceUI.Header -> GridItemSpan(maxLineSpan)
+                        is SourceUI.SourceItem -> GridItemSpan(1)
+                    }
+                },
+            ) { sourceUI ->
+                when (sourceUI) {
+                    is SourceUI.Header -> Text(
+                        sourceUI.header,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                     )
-                }
-            }
-        } else {
-            LazyColumn(state = state) {
-                items(sources) { source ->
-                    ThinSourceItem(
-                        source,
-                        onSourceClicked = onSourceClicked
+                    is SourceUI.SourceItem -> WideSourceItem(
+                        sourceUI,
+                        onSourceClicked = onAddSource,
                     )
                 }
             }
         }
+        VerticalScrollbar(
+            modifier = Modifier.align(Alignment.CenterEnd)
+                .fillMaxHeight()
+                .scrollbarPadding()
+                .windowInsetsPadding(
+                    WindowInsets.bottomNav.add(
+                        WindowInsets.navigationBars.only(
+                            WindowInsetsSides.Bottom,
+                        ),
+                    ),
+                ),
+            adapter = rememberVerticalScrollbarAdapter(state, cells),
+        )
     }
 }
 
 @Composable
 fun WideSourceItem(
-    source: Source,
-    onSourceClicked: (Source) -> Unit
+    sourceItem: SourceUI.SourceItem,
+    onSourceClicked: (Source) -> Unit,
 ) {
+    val source = sourceItem.source
     TooltipArea(
         {
             Surface(
                 modifier = Modifier.shadow(4.dp),
                 shape = RoundedCornerShape(4.dp),
-                elevation = 4.dp
+                elevation = 4.dp,
             ) {
                 Text(source.name, modifier = Modifier.padding(10.dp))
             }
-        }
+        },
     ) {
         Column(
             Modifier.padding(8.dp)
                 .clickable {
                     onSourceClicked(source)
                 },
-            horizontalAlignment = Alignment.CenterHorizontally
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            KamelImage(lazyPainterResource(source, filterQuality = FilterQuality.Medium), source.displayName, Modifier.size(96.dp))
+            ImageLoaderImage(
+                data = source,
+                contentDescription = source.displayName,
+                modifier = Modifier.size(96.dp),
+                filterQuality = FilterQuality.Medium,
+            )
             Spacer(Modifier.height(4.dp))
             Text(
-                "${source.name} (${source.displayLang.toUpperCase(Locale.current)})",
+                source.name,
                 color = MaterialTheme.colors.onBackground,
                 maxLines = 2,
-                overflow = TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis,
             )
         }
     }
 }
 
 @Composable
-fun ThinSourceItem(
-    source: Source,
-    onSourceClicked: (Source) -> Unit
+fun ThinSourcesMenu(
+    sources: ImmutableList<SourceUI>,
+    onAddSource: (Source) -> Unit,
 ) {
+    Box {
+        val state = rememberLazyListState()
+        LazyColumn(
+            state = state,
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = WindowInsets.bottomNav.add(
+                WindowInsets.navigationBars.only(
+                    WindowInsetsSides.Bottom,
+                ),
+            ).asPaddingValues(),
+        ) {
+            items(
+                sources,
+                contentType = {
+                    when (it) {
+                        is SourceUI.Header -> "header"
+                        is SourceUI.SourceItem -> "source"
+                    }
+                },
+                key = {
+                    when (it) {
+                        is SourceUI.Header -> it.header
+                        is SourceUI.SourceItem -> it.source.id
+                    }
+                },
+            ) { sourceUI ->
+                when (sourceUI) {
+                    is SourceUI.Header -> Text(
+                        sourceUI.header,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                    )
+                    is SourceUI.SourceItem -> ThinSourceItem(
+                        sourceUI,
+                        onSourceClicked = onAddSource,
+                    )
+                }
+            }
+        }
+        VerticalScrollbar(
+            modifier = Modifier.align(Alignment.CenterEnd)
+                .fillMaxHeight()
+                .scrollbarPadding()
+                .windowInsetsPadding(
+                    WindowInsets.bottomNav.add(
+                        WindowInsets.navigationBars.only(
+                            WindowInsetsSides.Bottom,
+                        ),
+                    ),
+                ),
+            adapter = rememberScrollbarAdapter(state),
+        )
+    }
+}
+
+@Composable
+fun ThinSourceItem(
+    sourceItem: SourceUI.SourceItem,
+    onSourceClicked: (Source) -> Unit,
+) {
+    val source = sourceItem.source
     Row(
         Modifier.fillMaxWidth()
             .height(64.dp)
             .clickable(onClick = { onSourceClicked(source) })
             .padding(horizontal = 16.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        KamelImage(
-            lazyPainterResource(source, filterQuality = FilterQuality.Medium),
+        ImageLoaderImage(
+            source,
             source.displayName,
             Modifier.fillMaxHeight()
-                .aspectRatio(1F, true)
+                .aspectRatio(1F, true),
+            filterQuality = FilterQuality.Medium,
         )
         Spacer(Modifier.width(8.dp))
         Column {
@@ -226,14 +335,14 @@ fun ThinSourceItem(
                 color = MaterialTheme.colors.onBackground,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                fontSize = 14.sp
+                fontSize = 14.sp,
             )
             Text(
                 localeToString(source.displayLang),
                 color = MaterialTheme.colors.onBackground,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                fontSize = 12.sp
+                fontSize = 12.sp,
             )
         }
     }
@@ -241,14 +350,12 @@ fun ThinSourceItem(
 
 @Composable
 @Stable
-private fun getActionItems(
-    openEnabledLanguagesClick: () -> Unit
-): List<ActionItem> {
-    return listOf(
+private fun getActionItems(openEnabledLanguagesClick: () -> Unit): ImmutableList<ActionItem> {
+    return persistentListOf(
         ActionItem(
             stringResource(MR.strings.enabled_languages),
             Icons.Rounded.Translate,
-            doAction = openEnabledLanguagesClick
-        )
-    )
+            doAction = openEnabledLanguagesClick,
+        ),
+    ).toImmutableList()
 }

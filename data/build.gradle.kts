@@ -6,6 +6,7 @@ plugins {
     id(libs.plugins.ksp.get().pluginId)
     id(libs.plugins.buildkonfig.get().pluginId)
     id(libs.plugins.kotlinter.get().pluginId)
+    id(libs.plugins.ktorfit.get().pluginId)
 }
 
 kotlin {
@@ -23,6 +24,9 @@ kotlin {
             }
         }
     }
+    iosX64()
+    iosArm64()
+    iosSimulatorArm64()
 
     sourceSets {
         all {
@@ -35,18 +39,16 @@ kotlin {
             dependencies {
                 api(kotlin("stdlib-common"))
                 api(libs.coroutines.core)
-                api(libs.serialization.json)
+                api(libs.serialization.json.core)
+                api(libs.serialization.json.okio)
                 api(libs.kotlinInject.runtime)
                 api(libs.ktor.core)
-                api(libs.ktor.contentNegotiation)
-                api(libs.ktor.serialization.json)
-                api(libs.ktor.auth)
-                api(libs.ktor.logging)
                 api(libs.ktor.websockets)
                 api(libs.okio)
                 api(libs.dateTime)
                 api(projects.core)
                 api(projects.i18n)
+                api(projects.domain)
             }
         }
         val commonTest by getting {
@@ -56,31 +58,67 @@ kotlin {
             }
         }
 
-        val desktopMain by getting {
+        val jvmMain by creating {
+            dependsOn(commonMain)
             dependencies {
                 api(kotlin("stdlib-jdk8"))
-                api(libs.ktor.okHttp)
             }
         }
+        val jvmTest by creating {
+            dependsOn(commonTest)
+            dependencies {
+                implementation(kotlin("test"))
+            }
+        }
+
+        val desktopMain by getting {
+            dependsOn(jvmMain)
+        }
         val desktopTest by getting {
+            dependsOn(jvmTest)
         }
 
         val androidMain by getting {
-            dependencies {
-                api(kotlin("stdlib-jdk8"))
-                api(libs.ktor.okHttp)
-            }
+            dependsOn(jvmMain)
         }
-        val androidTest by getting {
+        val androidUnitTest by getting {
+            dependsOn(jvmTest)
+        }
+
+        val iosMain by creating {
+            dependsOn(commonMain)
+        }
+        val iosTest by creating {
+            dependsOn(commonTest)
+        }
+
+        listOf(
+            "iosX64",
+            "iosArm64",
+            "iosSimulatorArm64",
+        ).forEach {
+            getByName(it + "Main").dependsOn(iosMain)
+            getByName(it + "Test").dependsOn(iosTest)
         }
     }
 }
 
 dependencies {
-    add("kspDesktop", libs.kotlinInject.compiler)
-    add("kspAndroid", libs.kotlinInject.compiler)
+    listOf(
+        "kspDesktop",
+        "kspAndroid",
+        "kspIosArm64",
+        "kspIosSimulatorArm64",
+        "kspIosX64"
+    ).forEach {
+        add(it, libs.kotlinInject.compiler)
+    }
 }
 
 buildkonfig {
     packageName = "ca.gosyer.jui.data.build"
+}
+
+android {
+    namespace = "ca.gosyer.jui.data"
 }

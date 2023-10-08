@@ -17,11 +17,15 @@ import androidx.compose.ui.unit.dp
 import ca.gosyer.jui.uicore.components.BoxWithTooltipSurface
 
 @Composable
-actual fun ActionIcon(onClick: () -> Unit, contentDescription: String, icon: ImageVector) {
+actual fun ActionIcon(
+    onClick: () -> Unit,
+    contentDescription: String,
+    icon: ImageVector,
+) {
     BoxWithTooltipSurface(
         {
             Text(contentDescription, modifier = Modifier.padding(10.dp))
-        }
+        },
     ) {
         IconButton(onClick = onClick) {
             Icon(icon, contentDescription)

@@ -11,11 +11,17 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.Icon
 import androidx.compose.material.IconButton
 import androidx.compose.material.Surface
@@ -33,22 +39,39 @@ import ca.gosyer.jui.presentation.build.BuildKonfig
 import ca.gosyer.jui.ui.base.navigation.DisplayController
 import ca.gosyer.jui.ui.main.MoreMenus
 import ca.gosyer.jui.ui.main.TopLevelMenus
+import ca.gosyer.jui.uicore.insets.systemBars
 import cafe.adriel.voyager.navigator.Navigator
 
 @Composable
-fun SideMenu(modifier: Modifier, controller: DisplayController, navigator: Navigator) {
-    Surface(modifier then Modifier.fillMaxHeight(), elevation = 2.dp) {
-        Box(Modifier.fillMaxSize()) {
-            Column(Modifier.fillMaxSize().padding(horizontal = 4.dp)) {
+fun SideMenu(
+    modifier: Modifier,
+    controller: DisplayController,
+    navigator: Navigator,
+) {
+    Surface(
+        Modifier.fillMaxHeight()
+            .windowInsetsPadding(
+                WindowInsets.systemBars.only(WindowInsetsSides.Vertical + WindowInsetsSides.Start),
+            ) then modifier,
+        elevation = 2.dp,
+    ) {
+        Column(
+            Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 4.dp),
+            verticalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Column {
                 Row(
                     Modifier.fillMaxWidth().height(60.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
                         BuildKonfig.NAME,
                         fontSize = 24.sp,
-                        modifier = Modifier
+                        modifier = Modifier,
                     )
                     IconButton(controller::closeSideMenu) {
                         Icon(Icons.Rounded.Close, contentDescription = null)
@@ -58,11 +81,14 @@ fun SideMenu(modifier: Modifier, controller: DisplayController, navigator: Navig
                 remember { TopLevelMenus.values().asList().dropLast(1) }.fastForEach { topLevelMenu ->
                     SideMenuItem(
                         topLevelMenu.isSelected(navigator),
-                        topLevelMenu
+                        topLevelMenu,
                     ) { navigator replaceAll it }
                 }
-                Box(Modifier.fillMaxSize()) {
-                    Column(Modifier.align(Alignment.BottomStart).padding(bottom = 8.dp)) {
+            }
+
+            Column {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomStart) {
+                    Column(Modifier.padding(vertical = 8.dp)) {
                         remember { MoreMenus.values() }.forEach { topLevelMenu ->
                             SideMenuItem(
                                 topLevelMenu.isSelected(navigator),

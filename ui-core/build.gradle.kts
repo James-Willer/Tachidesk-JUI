@@ -24,6 +24,9 @@ kotlin {
             }
         }
     }
+    iosX64()
+    iosArm64()
+    iosSimulatorArm64()
 
     sourceSets {
         all {
@@ -38,12 +41,17 @@ kotlin {
             dependencies {
                 api(kotlin("stdlib-common"))
                 api(libs.coroutines.core)
-                api(libs.kamel)
+                api(libs.imageloader.core)
+                api(libs.imageloader.moko)
                 api(libs.voyager.core)
                 api(libs.dateTime)
+                api(libs.immutableCollections)
                 api(projects.core)
                 api(projects.i18n)
-                api(compose.desktop.currentOs)
+                api(compose.runtime)
+                api(compose.foundation)
+                api(compose.ui)
+                api(compose.material)
                 api(compose.materialIconsExtended)
                 api(compose("org.jetbrains.compose.ui:ui-util"))
             }
@@ -55,25 +63,61 @@ kotlin {
             }
         }
 
-        val desktopMain by getting {
+        val jvmMain by creating {
+            dependsOn(commonMain)
             dependencies {
                 api(kotlin("stdlib-jdk8"))
+                api(compose.desktop.currentOs)
             }
         }
+        val jvmTest by creating {
+            dependsOn(commonTest)
+            dependencies {
+                implementation(kotlin("test"))
+            }
+        }
+
+        val desktopMain by getting {
+            dependsOn(jvmMain)
+        }
         val desktopTest by getting {
+            dependsOn(jvmTest)
         }
 
         val androidMain by getting {
+            dependsOn(jvmMain)
             dependencies {
-                api(kotlin("stdlib-jdk8"))
                 api(libs.bundles.compose.android)
+                api(libs.androidx.core)
+                api(libs.androidx.appCompat)
             }
         }
-        val androidTest by getting {
+        val androidUnitTest by getting {
+            dependsOn(jvmTest)
+        }
+
+        val iosMain by creating {
+            dependsOn(commonMain)
+        }
+        val iosTest by creating {
+            dependsOn(commonTest)
+        }
+
+        listOf(
+            "iosX64",
+            "iosArm64",
+            "iosSimulatorArm64",
+        ).forEach {
+            getByName(it + "Main").dependsOn(iosMain)
+            getByName(it + "Test").dependsOn(iosTest)
         }
     }
 }
 
 buildkonfig {
     packageName = "ca.gosyer.jui.uicore.build"
+}
+
+android {
+    namespace = "ca.gosyer.jui.uicore"
 }

@@ -7,15 +7,21 @@
 package ca.gosyer.jui.ui.library.components
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.add
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.GridCells
-import androidx.compose.foundation.lazy.LazyVerticalGrid
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.material.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -24,17 +30,19 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
-import ca.gosyer.jui.data.models.Manga
+import ca.gosyer.jui.domain.manga.model.Manga
+import ca.gosyer.jui.ui.main.components.bottomNav
 import ca.gosyer.jui.uicore.components.VerticalScrollbar
 import ca.gosyer.jui.uicore.components.mangaAspectRatio
-import ca.gosyer.jui.uicore.components.rememberScrollbarAdapter
+import ca.gosyer.jui.uicore.components.rememberVerticalScrollbarAdapter
 import ca.gosyer.jui.uicore.components.scrollbarPadding
-import ca.gosyer.jui.uicore.image.KamelImage
-import io.kamel.image.lazyPainterResource
+import ca.gosyer.jui.uicore.image.ImageLoaderImage
+import ca.gosyer.jui.uicore.insets.navigationBars
+import kotlinx.collections.immutable.ImmutableList
 
 @Composable
 fun LibraryMangaCoverOnlyGrid(
-    library: List<Manga>,
+    library: ImmutableList<Manga>,
     gridColumns: Int,
     gridSize: Int,
     onClickManga: (Long) -> Unit,
@@ -42,39 +50,51 @@ fun LibraryMangaCoverOnlyGrid(
     showUnread: Boolean,
     showDownloaded: Boolean,
     showLanguage: Boolean,
-    showLocal: Boolean
+    showLocal: Boolean,
 ) {
     Box {
-        val state = rememberLazyListState()
+        val state = rememberLazyGridState()
         val cells = if (gridColumns < 1) {
             GridCells.Adaptive(gridSize.dp)
         } else {
             GridCells.Fixed(gridColumns)
         }
         LazyVerticalGrid(
-            cells = cells,
+            columns = cells,
             state = state,
-            modifier = Modifier.fillMaxSize().padding(4.dp)
+            modifier = Modifier.fillMaxSize().padding(4.dp),
+            contentPadding = WindowInsets.bottomNav.add(
+                WindowInsets.navigationBars.only(
+                    WindowInsetsSides.Bottom,
+                ),
+            ).asPaddingValues(),
         ) {
             items(library) { manga ->
                 LibraryMangaCoverOnlyGridItem(
                     modifier = Modifier.libraryMangaModifier(
                         { onClickManga(manga.id) },
-                        { onRemoveMangaClicked(manga.id) }
+                        { onRemoveMangaClicked(manga.id) },
                     ),
                     manga = manga,
                     showUnread = showUnread,
                     showDownloaded = showDownloaded,
                     showLanguage = showLanguage,
-                    showLocal = showLocal
+                    showLocal = showLocal,
                 )
             }
         }
         VerticalScrollbar(
-            rememberScrollbarAdapter(state),
+            rememberVerticalScrollbarAdapter(state, cells),
             Modifier.align(Alignment.CenterEnd)
                 .fillMaxHeight()
                 .scrollbarPadding()
+                .windowInsetsPadding(
+                    WindowInsets.bottomNav.add(
+                        WindowInsets.navigationBars.only(
+                            WindowInsetsSides.Bottom,
+                        ),
+                    ),
+                ),
         )
     }
 }
@@ -86,21 +106,20 @@ private fun LibraryMangaCoverOnlyGridItem(
     showUnread: Boolean,
     showDownloaded: Boolean,
     showLanguage: Boolean,
-    showLocal: Boolean
+    showLocal: Boolean,
 ) {
-    val cover = lazyPainterResource(manga, filterQuality = FilterQuality.Medium)
-
     Box(
         modifier = Modifier.padding(4.dp)
             .fillMaxWidth()
             .aspectRatio(mangaAspectRatio)
-            .clip(MaterialTheme.shapes.medium) then modifier
+            .clip(MaterialTheme.shapes.medium) then modifier,
     ) {
-        KamelImage(
-            cover,
+        ImageLoaderImage(
+            manga,
             contentDescription = manga.title,
             modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.Crop
+            contentScale = ContentScale.Crop,
+            filterQuality = FilterQuality.Medium,
         )
         LibraryMangaBadges(
             modifier = Modifier.padding(4.dp),
@@ -108,7 +127,7 @@ private fun LibraryMangaCoverOnlyGridItem(
             showUnread = showUnread,
             showDownloaded = showDownloaded,
             showLanguage = showLanguage,
-            showLocal = showLocal
+            showLocal = showLocal,
         )
     }
 }

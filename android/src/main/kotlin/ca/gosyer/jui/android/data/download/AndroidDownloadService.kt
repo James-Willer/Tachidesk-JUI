@@ -20,17 +20,17 @@ import ca.gosyer.jui.android.util.notificationManager
 import ca.gosyer.jui.core.lang.chop
 import ca.gosyer.jui.core.lang.throwIfCancellation
 import ca.gosyer.jui.core.prefs.getAsFlow
-import ca.gosyer.jui.data.base.WebsocketService.Actions
-import ca.gosyer.jui.data.base.WebsocketService.Status
-import ca.gosyer.jui.data.download.DownloadService
-import ca.gosyer.jui.data.download.DownloadService.Companion.status
-import ca.gosyer.jui.data.download.model.DownloadState
-import ca.gosyer.jui.data.download.model.DownloadStatus
-import ca.gosyer.jui.data.server.requests.downloadsQuery
+import ca.gosyer.jui.domain.base.WebsocketService.Actions
+import ca.gosyer.jui.domain.base.WebsocketService.Status
+import ca.gosyer.jui.domain.download.model.DownloadState
+import ca.gosyer.jui.domain.download.model.DownloadStatus
+import ca.gosyer.jui.domain.download.service.DownloadService
+import ca.gosyer.jui.domain.download.service.DownloadService.Companion.status
 import ca.gosyer.jui.i18n.MR
 import dev.icerock.moko.resources.desc.desc
 import dev.icerock.moko.resources.format
 import io.ktor.client.plugins.websocket.ws
+import io.ktor.http.URLProtocol
 import io.ktor.websocket.Frame
 import io.ktor.websocket.readText
 import kotlinx.coroutines.CancellationException
@@ -41,8 +41,11 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.job
@@ -52,11 +55,13 @@ import org.lighthousegames.logging.logging
 import java.util.regex.Pattern
 
 class AndroidDownloadService : Service() {
-
     companion object {
         private var instance: AndroidDownloadService? = null
 
-        fun start(context: Context, actions: Actions) {
+        fun start(
+            context: Context,
+            actions: Actions,
+        ) {
             if (!isRunning() && actions != Actions.STOP) {
                 val intent = Intent(context, AndroidDownloadService::class.java).apply {
                     action = actions.name
@@ -73,6 +78,10 @@ class AndroidDownloadService : Service() {
             return instance != null
         }
 
+        private val json = Json {
+            ignoreUnknownKeys = true
+        }
+
         private val log = logging()
     }
 
@@ -85,21 +94,25 @@ class AndroidDownloadService : Service() {
     override fun onCreate() {
         super.onCreate()
         ioScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-        startForeground(Notifications.ID_DOWNLOAD_CHAPTER, placeholderNotification)
+        startForeground(Notifications.ID_DOWNLOADER_RUNNING, placeholderNotification)
         status.value = Status.STARTING
     }
 
     override fun onDestroy() {
         ioScope.cancel()
         status.value = Status.STOPPED
-        notificationManager.cancel(Notifications.ID_DOWNLOAD_CHAPTER)
+        notificationManager.cancel(Notifications.ID_DOWNLOADER_RUNNING)
         if (instance == this) {
             instance = null
         }
         super.onDestroy()
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+    override fun onStartCommand(
+        intent: Intent?,
+        flags: Int,
+        startId: Int,
+    ): Int {
         instance = this
         ioScope.coroutineContext.job.cancelChildren()
 
@@ -108,7 +121,8 @@ class AndroidDownloadService : Service() {
             log.info { "using an intent with action $action" }
             when (action) {
                 Actions.START.name,
-                Actions.RESTART.name -> startWebsocket()
+                Actions.RESTART.name,
+                -> startWebsocket()
                 Actions.STOP.name -> stopSelf()
                 else -> log.info { "This should never happen. No action in the received intent" }
             }
@@ -146,7 +160,12 @@ class AndroidDownloadService : Service() {
                         client.ws(
                             host = serverUrl.host,
                             port = serverUrl.port,
-                            path = serverUrl.encodedPath + downloadsQuery()
+                            path = serverUrl.encodedPath + "/api/v1/downloads",
+                            request = {
+                                if (serverUrl.protocol == URLProtocol.HTTPS) {
+                                    url.protocol = URLProtocol.WSS
+                                }
+                            },
                         ) {
                             errorConnectionCount = 0
                             status.value = Status.RUNNING
@@ -154,6 +173,9 @@ class AndroidDownloadService : Service() {
 
                             incoming.receiveAsFlow()
                                 .filterIsInstance<Frame.Text>()
+                                .map { json.decodeFromString<DownloadStatus>(it.readText()) }
+                                .distinctUntilChanged()
+                                .drop(1)
                                 .mapLatest(::onReceived)
                                 .catch {
                                     log.warn(it) { "Error running downloader" }
@@ -174,8 +196,7 @@ class AndroidDownloadService : Service() {
             .launchIn(ioScope)
     }
 
-    private fun onReceived(frame: Frame.Text) {
-        val status = Json.decodeFromString<DownloadStatus>(frame.readText())
+    private fun onReceived(status: DownloadStatus) {
         DownloadService.downloaderStatus.value = status.status
         DownloadService.downloadQueue.value = status.queue
         val downloadingChapter = status.queue.lastOrNull { it.state == DownloadState.Downloading }
@@ -194,28 +215,28 @@ class AndroidDownloadService : Service() {
                     MR.strings.chapter_downloading_progress
                         .format(
                             current,
-                            max
+                            max,
                         )
-                        .toString(this@AndroidDownloadService)
+                        .toString(this@AndroidDownloadService),
                 )
             }.build()
             notificationManager.notify(
-                Notifications.ID_DOWNLOAD_CHAPTER,
-                notification
+                Notifications.ID_DOWNLOADER_DOWNLOADING,
+                notification,
             )
         } else {
-            notificationManager.notify(Notifications.ID_DOWNLOAD_CHAPTER, placeholderNotification)
+            notificationManager.cancel(Notifications.ID_DOWNLOADER_DOWNLOADING)
         }
     }
 
     private val placeholderNotification by lazy {
-        notification(Notifications.CHANNEL_DOWNLOADER) {
+        notification(Notifications.CHANNEL_DOWNLOADER_RUNNING) {
             setContentTitle(MR.strings.downloader_running.desc().toString(this@AndroidDownloadService))
             setSmallIcon(R.drawable.ic_round_get_app_24)
         }
     }
     private val progressNotificationBuilder by lazy {
-        notificationBuilder(Notifications.CHANNEL_DOWNLOADER) {
+        notificationBuilder(Notifications.CHANNEL_DOWNLOADER_DOWNLOADING) {
             setSmallIcon(R.drawable.ic_round_get_app_24)
             setAutoCancel(false)
             setOnlyAlertOnce(true)

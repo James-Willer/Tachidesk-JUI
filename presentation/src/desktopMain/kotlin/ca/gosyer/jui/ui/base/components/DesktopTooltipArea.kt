@@ -12,24 +12,24 @@ import androidx.compose.ui.Modifier
 
 actual typealias TooltipPlacement = androidx.compose.foundation.TooltipPlacement
 
-actual typealias CursorPoint = androidx.compose.foundation.TooltipPlacement.CursorPoint
+actual typealias CursorPointImpl = androidx.compose.foundation.TooltipPlacement.CursorPoint
 
-actual typealias ComponentRect = androidx.compose.foundation.TooltipPlacement.ComponentRect
+actual typealias ComponentRectImpl = androidx.compose.foundation.TooltipPlacement.ComponentRect
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-actual fun TooltipArea(
+internal actual fun RealTooltipArea(
     tooltip: @Composable () -> Unit,
     modifier: Modifier,
     delayMillis: Int,
     tooltipPlacement: TooltipPlacement,
-    content: @Composable () -> Unit
+    content: @Composable () -> Unit,
 ) {
     androidx.compose.foundation.TooltipArea(
         tooltip,
         modifier,
         delayMillis,
         tooltipPlacement,
-        content
+        content,
     )
 }

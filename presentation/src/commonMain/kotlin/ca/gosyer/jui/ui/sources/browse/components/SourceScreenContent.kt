@@ -15,9 +15,14 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.forEachGesture
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.add
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.ExtendedFloatingActionButton
 import androidx.compose.material.Icon
 import androidx.compose.material.ModalBottomSheetLayout
@@ -43,19 +48,24 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastForEach
-import ca.gosyer.jui.data.library.model.DisplayMode
-import ca.gosyer.jui.data.models.Manga
-import ca.gosyer.jui.data.models.Source
+import ca.gosyer.jui.domain.library.model.DisplayMode
+import ca.gosyer.jui.domain.manga.model.Manga
+import ca.gosyer.jui.domain.source.model.Source
 import ca.gosyer.jui.i18n.MR
 import ca.gosyer.jui.ui.base.navigation.ActionItem
 import ca.gosyer.jui.ui.base.navigation.BackHandler
 import ca.gosyer.jui.ui.base.navigation.Toolbar
+import ca.gosyer.jui.ui.main.components.bottomNav
 import ca.gosyer.jui.ui.sources.browse.filter.SourceFiltersMenu
 import ca.gosyer.jui.ui.sources.browse.filter.model.SourceFiltersView
 import ca.gosyer.jui.uicore.components.DropdownMenu
 import ca.gosyer.jui.uicore.components.DropdownMenuItem
 import ca.gosyer.jui.uicore.components.LoadingScreen
+import ca.gosyer.jui.uicore.insets.navigationBars
+import ca.gosyer.jui.uicore.insets.statusBars
 import ca.gosyer.jui.uicore.resources.stringResource
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.toImmutableList
 
 @Composable
 fun SourceScreenContent(
@@ -66,13 +76,12 @@ fun SourceScreenContent(
     displayMode: DisplayMode,
     gridColumns: Int,
     gridSize: Int,
-    mangas: List<Manga>,
+    mangas: ImmutableList<Manga>,
     hasNextPage: Boolean,
     loading: Boolean,
     isLatest: Boolean,
     showLatestButton: Boolean,
     sourceSearchQuery: String?,
-    enableLatest: (Boolean) -> Unit,
     search: (String) -> Unit,
     submitSearch: () -> Unit,
     setMode: (Boolean) -> Unit,
@@ -80,16 +89,12 @@ fun SourceScreenContent(
     setUsingFilters: (Boolean) -> Unit,
     onSelectDisplayMode: (DisplayMode) -> Unit,
     // filter
-    filters: List<SourceFiltersView<*, *>>,
+    filters: ImmutableList<SourceFiltersView<*, *>>,
     showingFilters: Boolean,
     showFilterButton: Boolean,
     setShowingFilters: (Boolean) -> Unit,
-    resetFiltersClicked: () -> Unit
+    resetFiltersClicked: () -> Unit,
 ) {
-    LaunchedEffect(source) {
-        enableLatest(source.supportsLatest)
-    }
-
     BackHandler {
         onCloseSourceTabClick(source)
     }
@@ -124,7 +129,7 @@ fun SourceScreenContent(
                 showFilterButton = showFilterButton,
                 setShowingFilters = setShowingFilters,
                 onSelectDisplayMode = onSelectDisplayMode,
-                resetFiltersClicked = resetFiltersClicked
+                resetFiltersClicked = resetFiltersClicked,
             )
         } else {
             SourceThinScreenContent(
@@ -151,7 +156,7 @@ fun SourceScreenContent(
                 showFilterButton = showFilterButton,
                 setShowingFilters = setShowingFilters,
                 onSelectDisplayMode = onSelectDisplayMode,
-                resetFiltersClicked = resetFiltersClicked
+                resetFiltersClicked = resetFiltersClicked,
             )
         }
     }
@@ -166,7 +171,7 @@ private fun SourceWideScreenContent(
     displayMode: DisplayMode,
     gridColumns: Int,
     gridSize: Int,
-    mangas: List<Manga>,
+    mangas: ImmutableList<Manga>,
     hasNextPage: Boolean,
     loading: Boolean,
     isLatest: Boolean,
@@ -178,14 +183,19 @@ private fun SourceWideScreenContent(
     loadNextPage: () -> Unit,
     setUsingFilters: (Boolean) -> Unit,
     // filter
-    filters: List<SourceFiltersView<*, *>>,
+    filters: ImmutableList<SourceFiltersView<*, *>>,
     showingFilters: Boolean,
     showFilterButton: Boolean,
     setShowingFilters: (Boolean) -> Unit,
     onSelectDisplayMode: (DisplayMode) -> Unit,
-    resetFiltersClicked: () -> Unit
+    resetFiltersClicked: () -> Unit,
 ) {
     Scaffold(
+        modifier = Modifier.windowInsetsPadding(
+            WindowInsets.statusBars.add(
+                WindowInsets.navigationBars.only(WindowInsetsSides.Horizontal),
+            ),
+        ),
         topBar = {
             SourceToolbar(
                 source = source,
@@ -200,7 +210,7 @@ private fun SourceWideScreenContent(
                 showingFilters = showingFilters,
                 onClickMode = setMode,
                 onToggleFiltersClick = setShowingFilters,
-                onSelectDisplayMode = onSelectDisplayMode
+                onSelectDisplayMode = onSelectDisplayMode,
             )
         },
     ) { padding ->
@@ -223,14 +233,14 @@ private fun SourceWideScreenContent(
                                 setShowingFilters(false)
                             }
                         }
-                    }
+                    },
                 )
             }
             AnimatedVisibility(
                 showingFilters && !isLatest,
                 enter = fadeIn() + slideInHorizontally(initialOffsetX = { it * 2 }),
                 exit = fadeOut() + slideOutHorizontally(targetOffsetX = { it * 2 }),
-                modifier = Modifier.align(Alignment.TopEnd)
+                modifier = Modifier.align(Alignment.TopEnd),
             ) {
                 SourceFiltersMenu(
                     modifier = Modifier.width(360.dp),
@@ -240,7 +250,7 @@ private fun SourceWideScreenContent(
                         setShowingFilters(false)
                         submitSearch()
                     },
-                    resetFiltersClicked = resetFiltersClicked
+                    resetFiltersClicked = resetFiltersClicked,
                 )
             }
         }
@@ -256,7 +266,7 @@ private fun SourceThinScreenContent(
     displayMode: DisplayMode,
     gridColumns: Int,
     gridSize: Int,
-    mangas: List<Manga>,
+    mangas: ImmutableList<Manga>,
     hasNextPage: Boolean,
     loading: Boolean,
     isLatest: Boolean,
@@ -268,12 +278,12 @@ private fun SourceThinScreenContent(
     loadNextPage: () -> Unit,
     setUsingFilters: (Boolean) -> Unit,
     // filter
-    filters: List<SourceFiltersView<*, *>>,
+    filters: ImmutableList<SourceFiltersView<*, *>>,
     showingFilters: Boolean,
     showFilterButton: Boolean,
     setShowingFilters: (Boolean) -> Unit,
     onSelectDisplayMode: (DisplayMode) -> Unit,
-    resetFiltersClicked: () -> Unit
+    resetFiltersClicked: () -> Unit,
 ) {
     val bottomSheetState = rememberModalBottomSheetState(
         ModalBottomSheetValue.Hidden,
@@ -281,10 +291,11 @@ private fun SourceThinScreenContent(
             when (it) {
                 ModalBottomSheetValue.Hidden -> setShowingFilters(false)
                 ModalBottomSheetValue.Expanded,
-                ModalBottomSheetValue.HalfExpanded -> setShowingFilters(true)
+                ModalBottomSheetValue.HalfExpanded,
+                -> setShowingFilters(true)
             }
             true
-        }
+        },
     )
     LaunchedEffect(showingFilters) {
         if (showingFilters) {
@@ -294,6 +305,11 @@ private fun SourceThinScreenContent(
         }
     }
     Scaffold(
+        modifier = Modifier.windowInsetsPadding(
+            WindowInsets.statusBars.add(
+                WindowInsets.navigationBars.only(WindowInsetsSides.Horizontal),
+            ),
+        ),
         topBar = {
             SourceToolbar(
                 source = source,
@@ -308,25 +324,31 @@ private fun SourceThinScreenContent(
                 showingFilters = showingFilters,
                 onClickMode = setMode,
                 onToggleFiltersClick = setShowingFilters,
-                onSelectDisplayMode = onSelectDisplayMode
+                onSelectDisplayMode = onSelectDisplayMode,
             )
-        }
+        },
     ) { padding ->
         ModalBottomSheetLayout(
             sheetState = bottomSheetState,
             modifier = Modifier.padding(padding),
             sheetContent = {
                 SourceFiltersMenu(
-                    modifier = Modifier,
+                    modifier = Modifier.windowInsetsPadding(
+                        WindowInsets.bottomNav.add(
+                            WindowInsets.navigationBars.only(
+                                WindowInsetsSides.Bottom,
+                            ),
+                        ),
+                    ),
                     filters = filters,
                     onSearchClicked = {
                         setUsingFilters(true)
                         setShowingFilters(false)
                         submitSearch()
                     },
-                    resetFiltersClicked = resetFiltersClicked
+                    resetFiltersClicked = resetFiltersClicked,
                 )
-            }
+            },
         ) {
             Box {
                 MangaTable(
@@ -347,7 +369,7 @@ private fun SourceThinScreenContent(
                                     setShowingFilters(false)
                                 }
                             }
-                        }
+                        },
                     )
                 }
                 if (showFilterButton && !isLatest) {
@@ -361,11 +383,18 @@ private fun SourceThinScreenContent(
                         icon = {
                             Icon(
                                 Icons.Rounded.FilterList,
-                                stringResource(MR.strings.action_filter)
+                                stringResource(MR.strings.action_filter),
                             )
                         },
                         modifier = Modifier.align(Alignment.BottomEnd)
                             .padding(bottom = 16.dp, end = 16.dp)
+                            .windowInsetsPadding(
+                                WindowInsets.bottomNav.add(
+                                    WindowInsets.navigationBars.only(
+                                        WindowInsetsSides.Bottom,
+                                    ),
+                                ),
+                            ),
                     )
                 }
             }
@@ -403,7 +432,7 @@ fun SourceToolbar(
             DisplayModeSelect(
                 isVisible = displayModeSelectOpen,
                 onSelectDisplayMode = onSelectDisplayMode,
-                onDismissRequest = { displayModeSelectOpen = false }
+                onDismissRequest = { displayModeSelectOpen = false },
             )
             getActionItems(
                 isConfigurable = source.isConfigurable,
@@ -419,9 +448,9 @@ fun SourceToolbar(
                 onClickMode = {
                     onClickMode(!isLatest)
                 },
-                openDisplayModeSelect = { displayModeSelectOpen = true }
+                openDisplayModeSelect = { displayModeSelectOpen = true },
             )
-        }
+        },
     )
 }
 
@@ -429,11 +458,11 @@ fun SourceToolbar(
 fun DisplayModeSelect(
     isVisible: Boolean,
     onSelectDisplayMode: (DisplayMode) -> Unit,
-    onDismissRequest: () -> Unit
+    onDismissRequest: () -> Unit,
 ) {
     DropdownMenu(
         isVisible,
-        onDismissRequest
+        onDismissRequest,
     ) {
         val list = DisplayMode.values().toList() - DisplayMode.CoverOnlyGrid
         list.fastForEach {
@@ -441,7 +470,7 @@ fun DisplayModeSelect(
                 onClick = {
                     onSelectDisplayMode(it)
                     onDismissRequest()
-                }
+                },
             ) {
                 Text(stringResource(it.res))
             }
@@ -454,7 +483,7 @@ private fun MangaTable(
     displayMode: DisplayMode,
     gridColumns: Int,
     gridSize: Int,
-    mangas: List<Manga>,
+    mangas: ImmutableList<Manga>,
     isLoading: Boolean = false,
     hasNextPage: Boolean = false,
     onLoadNextPage: () -> Unit,
@@ -470,7 +499,7 @@ private fun MangaTable(
                 gridSize = gridSize,
                 onClickManga = onMangaClick,
                 hasNextPage = hasNextPage,
-                onLoadNextPage = onLoadNextPage
+                onLoadNextPage = onLoadNextPage,
             )
             DisplayMode.ComfortableGrid -> SourceMangaComfortableGrid(
                 mangas = mangas,
@@ -478,13 +507,13 @@ private fun MangaTable(
                 gridSize = gridSize,
                 onClickManga = onMangaClick,
                 hasNextPage = hasNextPage,
-                onLoadNextPage = onLoadNextPage
+                onLoadNextPage = onLoadNextPage,
             )
             DisplayMode.List -> SourceMangaList(
                 mangas = mangas,
                 onClickManga = onMangaClick,
                 hasNextPage = hasNextPage,
-                onLoadNextPage = onLoadNextPage
+                onLoadNextPage = onLoadNextPage,
             )
             else -> Box {}
         }
@@ -501,17 +530,19 @@ private fun getActionItems(
     showFilterButton: Boolean,
     onToggleFiltersClick: () -> Unit,
     onClickMode: () -> Unit,
-    openDisplayModeSelect: () -> Unit
-): List<ActionItem> {
+    openDisplayModeSelect: () -> Unit,
+): ImmutableList<ActionItem> {
     return listOfNotNull(
         if (showFilterButton) {
             ActionItem(
                 name = stringResource(MR.strings.action_filter),
                 icon = Icons.Rounded.FilterList,
                 doAction = onToggleFiltersClick,
-                enabled = !isLatest
+                enabled = !isLatest,
             )
-        } else null,
+        } else {
+            null
+        },
         if (showLatestButton) {
             ActionItem(
                 name = stringResource(
@@ -519,27 +550,31 @@ private fun getActionItems(
                         MR.strings.move_to_browse
                     } else {
                         MR.strings.move_to_latest
-                    }
+                    },
                 ),
                 icon = if (isLatest) {
                     Icons.Rounded.Explore
                 } else {
                     Icons.Rounded.NewReleases
                 },
-                doAction = onClickMode
+                doAction = onClickMode,
             )
-        } else null,
+        } else {
+            null
+        },
         ActionItem(
             name = stringResource(MR.strings.display_mode),
             icon = Icons.Rounded.ViewModule,
-            doAction = openDisplayModeSelect
+            doAction = openDisplayModeSelect,
         ),
         if (isConfigurable) {
             ActionItem(
                 name = stringResource(MR.strings.location_settings),
                 icon = Icons.Rounded.Settings,
-                doAction = onSourceSettingsClick
+                doAction = onSourceSettingsClick,
             )
-        } else null,
-    )
+        } else {
+            null
+        },
+    ).toImmutableList()
 }

@@ -8,13 +8,19 @@ package ca.gosyer.jui.ui.sources.globalsearch
 
 import androidx.compose.runtime.snapshots.SnapshotStateMap
 import ca.gosyer.jui.core.lang.IO
-import ca.gosyer.jui.data.catalog.CatalogPreferences
-import ca.gosyer.jui.data.models.MangaPage
-import ca.gosyer.jui.data.models.Source
-import ca.gosyer.jui.data.server.interactions.SourceInteractionHandler
+import ca.gosyer.jui.domain.manga.model.Manga
+import ca.gosyer.jui.domain.source.interactor.GetSearchManga
+import ca.gosyer.jui.domain.source.interactor.GetSourceList
+import ca.gosyer.jui.domain.source.model.Source
+import ca.gosyer.jui.domain.source.service.CatalogPreferences
 import ca.gosyer.jui.i18n.MR
+import ca.gosyer.jui.ui.base.state.SavedStateHandle
+import ca.gosyer.jui.ui.base.state.getStateFlow
 import ca.gosyer.jui.uicore.vm.ContextWrapper
 import ca.gosyer.jui.uicore.vm.ViewModel
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -33,120 +39,125 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
+import me.tatarka.inject.annotations.Assisted
 import me.tatarka.inject.annotations.Inject
 import org.lighthousegames.logging.logging
 
-class GlobalSearchViewModel @Inject constructor(
-    private val sourceHandler: SourceInteractionHandler,
-    catalogPreferences: CatalogPreferences,
-    contextWrapper: ContextWrapper,
-    params: Params
-) : ViewModel(contextWrapper) {
-    private val _query = MutableStateFlow(params.initialQuery)
-    val query = _query.asStateFlow()
+class GlobalSearchViewModel
+    @Inject
+    constructor(
+        private val getSourceList: GetSourceList,
+        private val getSearchManga: GetSearchManga,
+        catalogPreferences: CatalogPreferences,
+        contextWrapper: ContextWrapper,
+        @Assisted private val savedStateHandle: SavedStateHandle,
+        @Assisted params: Params,
+    ) : ViewModel(contextWrapper) {
+        private val _query by savedStateHandle.getStateFlow { params.initialQuery }
+        val query = _query.asStateFlow()
 
-    private val installedSources = MutableStateFlow(emptyList<Source>())
+        private val installedSources = MutableStateFlow(emptyList<Source>())
 
-    private val languages = catalogPreferences.languages().stateIn(scope)
-    val displayMode = catalogPreferences.displayMode().stateIn(scope)
+        private val languages = catalogPreferences.languages().stateIn(scope)
+        val displayMode = catalogPreferences.displayMode().stateIn(scope)
 
-    private val _isLoading = MutableStateFlow(true)
-    val isLoading = _isLoading.asStateFlow()
+        private val _isLoading = MutableStateFlow(true)
+        val isLoading = _isLoading.asStateFlow()
 
-    val sources = combine(installedSources, languages) { installedSources, languages ->
-        installedSources.filter {
-            it.lang in languages || it.id == Source.LOCAL_SOURCE_ID
+        val sources = combine(installedSources, languages) { installedSources, languages ->
+            installedSources.filter {
+                it.lang in languages || it.id == Source.LOCAL_SOURCE_ID
+            }.toImmutableList()
+        }.stateIn(scope, SharingStarted.Eagerly, persistentListOf())
+
+        private val search by savedStateHandle.getStateFlow { params.initialQuery }
+
+        val results = SnapshotStateMap<Long, Search>()
+
+        init {
+            getSources()
+            readySearch()
         }
-    }.stateIn(scope, SharingStarted.Eagerly, emptyList())
 
-    private val search = MutableStateFlow(params.initialQuery)
-
-    val results = SnapshotStateMap<Long, Search>()
-
-    init {
-        getSources()
-        readySearch()
-    }
-
-    private fun getSources() {
-        sourceHandler.getSourceList()
-            .onEach { sources ->
-                installedSources.value = sources.sortedWith(
-                    compareBy<Source, String>(String.CASE_INSENSITIVE_ORDER) { it.lang }
-                        .thenBy(String.CASE_INSENSITIVE_ORDER) {
-                            it.name
-                        }
-                )
-                _isLoading.value = false
-            }
-            .catch {
-                log.warn(it) { "Error getting sources" }
-                _isLoading.value = false
-            }
-            .launchIn(scope)
-    }
-
-    private val semaphore = Semaphore(5)
-
-    private fun readySearch() {
-        search
-            .combine(sources) { query, sources ->
-                query to sources
-            }
-            .mapLatest { (query, sources) ->
-                results.clear()
-                supervisorScope {
-                    sources.map { source ->
-                        async {
-                            semaphore.withPermit {
-                                sourceHandler
-                                    .getSearchResults(source, query, 1)
-                                    .map {
-                                        if (it.mangaList.isEmpty()) {
-                                            Search.Failure(MR.strings.no_results_found.toPlatformString())
-                                        } else {
-                                            Search.Success(it)
-                                        }
-                                    }
-                                    .catch {
-                                        log.warn(it) { "Error getting search from ${source.displayName}" }
-                                        emit(Search.Failure(it))
-                                    }
-                                    .onEach {
-                                        results[source.id] = it
-                                    }
-                                    .collect()
-                            }
-                        }
-                    }.awaitAll()
+        private fun getSources() {
+            getSourceList.asFlow()
+                .onEach { sources ->
+                    installedSources.value = sources.sortedWith(
+                        compareBy<Source, String>(String.CASE_INSENSITIVE_ORDER) { it.lang }
+                            .thenBy(String.CASE_INSENSITIVE_ORDER) {
+                                it.name
+                            },
+                    )
+                    _isLoading.value = false
                 }
+                .catch {
+                    toast(it.message.orEmpty())
+                    log.warn(it) { "Error getting sources" }
+                    _isLoading.value = false
+                }
+                .launchIn(scope)
+        }
+
+        private val semaphore = Semaphore(5)
+
+        private fun readySearch() {
+            search
+                .combine(sources) { query, sources ->
+                    query to sources
+                }
+                .mapLatest { (query, sources) ->
+                    results.clear()
+                    supervisorScope {
+                        sources.map { source ->
+                            async {
+                                semaphore.withPermit {
+                                    getSearchManga.asFlow(source, query, 1)
+                                        .map {
+                                            if (it.mangaList.isEmpty()) {
+                                                Search.Failure(MR.strings.no_results_found.toPlatformString())
+                                            } else {
+                                                Search.Success(it.mangaList.toImmutableList())
+                                            }
+                                        }
+                                        .catch {
+                                            log.warn(it) { "Error getting search from ${source.displayName}" }
+                                            emit(Search.Failure(it))
+                                        }
+                                        .onEach {
+                                            results[source.id] = it
+                                        }
+                                        .collect()
+                                }
+                            }
+                        }.awaitAll()
+                    }
+                }
+                .catch {
+                    log.warn(it) { "Error getting sources" }
+                }
+                .flowOn(Dispatchers.IO)
+                .launchIn(scope)
+        }
+
+        fun setQuery(query: String) {
+            _query.value = query
+        }
+
+        fun startSearch(query: String) {
+            search.value = query
+        }
+
+        data class Params(val initialQuery: String)
+
+        sealed class Search {
+            object Searching : Search()
+            data class Success(val mangaList: ImmutableList<Manga>) : Search()
+            data class Failure(val e: String?) : Search() {
+                constructor(e: Throwable) : this(e.message)
             }
-            .catch {
-                log.warn(it) { "Error getting sources" }
-            }
-            .flowOn(Dispatchers.IO)
-            .launchIn(scope)
-    }
+        }
 
-    fun setQuery(query: String) {
-        _query.value = query
-    }
-
-    fun startSearch(query: String) {
-        search.value = query
-    }
-
-    data class Params(val initialQuery: String)
-
-    sealed class Search {
-        object Searching : Search()
-        data class Success(val mangaPage: MangaPage) : Search()
-        data class Failure(val e: String?) : Search() {
-            constructor(e: Throwable) : this(e.message)
+        private companion object {
+            private val log = logging()
         }
     }
-
-    private companion object {
-        private val log = logging()
-    }
-}

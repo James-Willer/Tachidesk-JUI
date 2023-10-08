@@ -23,9 +23,9 @@ Here is a list of current features for interaction with Tachidesk-JUI:
 ### Supported Tachidesk versions
 These are the versions of [Tachidesk-Server][tachidesk-server] that JUI supports.
 #### [Release build][release]
-- [Tachidesk-Server][tachidesk-server] v0.6.0+
+- [Tachidesk-Server][tachidesk-server] v0.7.0+
 #### [Preview build][preview]
-- [Tachidesk-Server Preview][tachidesk-server-preview] v0.6.0+
+- [Tachidesk-Server Preview][tachidesk-server-preview] v0.7.0-r1197+
 
 ## Downloading and Running the app
 ### All Desktop Operating Systems (x64, Java Not Included)
@@ -38,6 +38,8 @@ Double-click on the jar file or run `java -jar Tachidesk-JUI-os-arch-X.Y.Z.jar` 
 ### Windows (x64, Java 8+ required for server)
 #### Installer
 Download the latest msi release from [the releases section][release] (Or from [the preview releases][preview]).
+#### [Chocolatey](https://community.chocolatey.org/packages/tachidesk-jui)
+`choco install tachidesk-jui`
 #### Winget
 `winget install tachidesk-jui`
 #### Scoop
@@ -93,7 +95,7 @@ Feel free to translate the project on [Weblate](https://hosted.weblate.org/proje
 </details>
 
 ## Credit
-The `Tachidesk` project is developed by [@AriaMoradi](https://github.com/AriaMoradi) and contributors, a link for [Tachidesk is provided here](https://github.com/Suwayomi/Tachidesk) and is licensed under `Mozilla Public License v2.0`.
+The `Tachidesk-Server` project is developed by [@AriaMoradi](https://github.com/AriaMoradi) and contributors, a link for [Tachidesk-Server is provided here][tachidesk-server] and is licensed under `Mozilla Public License v2.0`.
 
 Parts of [Tachiyomi-1.x](https://github.com/tachiyomiorg/tachiyomi-1.x) is adopted into this codebase, also licensed under `Mozilla Public License v2.0`.
 
@@ -101,7 +103,7 @@ You can obtain a copy of `Mozilla Public License v2.0` from https://mozilla.org/
 
 ## License
 
-    Copyright (C) 2020-2021 Syer and contributors
+    Copyright (C) 2020-2022 Syer and contributors
 
     This Source Code Form is subject to the terms of the Mozilla Public
     License, v. 2.0. If a copy of the MPL was not distributed with this

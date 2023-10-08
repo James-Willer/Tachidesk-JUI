@@ -14,24 +14,25 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.state.ToggleableState
-import ca.gosyer.jui.data.library.model.FilterState
+import ca.gosyer.jui.domain.library.model.FilterState
 import ca.gosyer.jui.i18n.MR
 import ca.gosyer.jui.ui.sources.browse.filter.SourceFilterAction
 import ca.gosyer.jui.uicore.resources.stringResource
 
 @Composable
-fun getLibraryFilters(vm: LibrarySettingsViewModel): @Composable () -> Unit = remember(vm) {
-    @Composable {
-        LibraryFilters(
-            downloaded = vm.filterDownloaded.collectAsState().value,
-            unread = vm.filterUnread.collectAsState().value,
-            completed = vm.filterCompleted.collectAsState().value,
-            setDownloadedFilter = { vm.filterDownloaded.value = it },
-            setUnreadFilter = { vm.filterUnread.value = it },
-            setCompletedFilter = { vm.filterCompleted.value = it },
-        )
+fun getLibraryFilters(vm: LibrarySettingsViewModel): @Composable () -> Unit =
+    remember(vm) {
+        @Composable {
+            LibraryFilters(
+                downloaded = vm.filterDownloaded.collectAsState().value,
+                unread = vm.filterUnread.collectAsState().value,
+                completed = vm.filterCompleted.collectAsState().value,
+                setDownloadedFilter = { vm.filterDownloaded.value = it },
+                setUnreadFilter = { vm.filterUnread.value = it },
+                setCompletedFilter = { vm.filterCompleted.value = it },
+            )
+        }
     }
-}
 
 @Composable
 fun LibraryFilters(
@@ -46,29 +47,34 @@ fun LibraryFilters(
         Filter(
             stringResource(MR.strings.filter_downloaded),
             downloaded,
-            onClick = { setDownloadedFilter(toggleState(downloaded)) }
+            onClick = { setDownloadedFilter(toggleState(downloaded)) },
         )
         Filter(
             stringResource(MR.strings.filter_unread),
             unread,
-            onClick = { setUnreadFilter(toggleState(unread)) }
+            onClick = { setUnreadFilter(toggleState(unread)) },
         )
         Filter(
             stringResource(MR.strings.filter_completed),
             completed,
-            onClick = { setCompletedFilter(toggleState(completed)) }
+            onClick = { setCompletedFilter(toggleState(completed)) },
         )
     }
 }
 
-fun toggleState(filterState: FilterState) = when (filterState) {
-    FilterState.IGNORED -> FilterState.INCLUDED
-    FilterState.INCLUDED -> FilterState.EXCLUDED
-    FilterState.EXCLUDED -> FilterState.IGNORED
-}
+fun toggleState(filterState: FilterState) =
+    when (filterState) {
+        FilterState.IGNORED -> FilterState.INCLUDED
+        FilterState.INCLUDED -> FilterState.EXCLUDED
+        FilterState.EXCLUDED -> FilterState.IGNORED
+    }
 
 @Composable
-private fun Filter(text: String, state: FilterState, onClick: () -> Unit) {
+private fun Filter(
+    text: String,
+    state: FilterState,
+    onClick: () -> Unit,
+) {
     SourceFilterAction(
         text,
         onClick = onClick,
@@ -79,8 +85,8 @@ private fun Filter(text: String, state: FilterState, onClick: () -> Unit) {
                     FilterState.EXCLUDED -> ToggleableState.Indeterminate
                     FilterState.IGNORED -> ToggleableState.Off
                 },
-                onClick = null
+                onClick = null,
             )
-        }
+        },
     )
 }

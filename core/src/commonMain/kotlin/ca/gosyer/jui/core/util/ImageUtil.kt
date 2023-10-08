@@ -9,7 +9,6 @@ package ca.gosyer.jui.core.util
 import io.ktor.utils.io.core.toByteArray
 
 object ImageUtil {
-
     private val jpgMagic = charByteArrayOf(0xFF, 0xD8, 0xFF)
     private val pngMagic = charByteArrayOf(0x89, 0x50, 0x4E, 0x47)
     private val gifMagic = "GIF8".toByteArray()
@@ -40,6 +39,6 @@ object ImageUtil {
         JPG("image/jpeg", "jpg"),
         PNG("image/png", "png"),
         GIF("image/gif", "gif"),
-        WEBP("image/webp", "webp")
+        WEBP("image/webp", "webp"),
     }
 }

@@ -25,52 +25,52 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
-import ca.gosyer.jui.data.reader.model.Direction
+import ca.gosyer.jui.domain.reader.model.Direction
+import ca.gosyer.jui.ui.base.model.StableHolder
 import ca.gosyer.jui.ui.reader.ChapterSeparator
 import ca.gosyer.jui.ui.reader.ReaderImage
 import ca.gosyer.jui.ui.reader.model.MoveTo
 import ca.gosyer.jui.ui.reader.model.PageMove
 import ca.gosyer.jui.ui.reader.model.ReaderChapter
+import ca.gosyer.jui.ui.reader.model.ReaderItem
 import ca.gosyer.jui.ui.reader.model.ReaderPage
+import ca.gosyer.jui.ui.reader.model.ReaderPageSeparator
 import ca.gosyer.jui.uicore.components.HorizontalScrollbar
 import ca.gosyer.jui.uicore.components.VerticalScrollbar
 import ca.gosyer.jui.uicore.components.rememberScrollbarAdapter
 import ca.gosyer.jui.uicore.components.scrollbarPadding
+import kotlinx.collections.immutable.ImmutableList
 import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.mapLatest
 
 @Composable
 fun ContinuousReader(
     modifier: Modifier,
-    pages: List<ReaderPage>,
+    pages: ImmutableList<ReaderItem>,
     direction: Direction,
     maxSize: Int,
     padding: Int,
-    currentPage: Int,
+    currentPage: ReaderItem?,
     currentPageOffset: Int,
-    previousChapter: ReaderChapter?,
-    currentChapter: ReaderChapter,
-    nextChapter: ReaderChapter?,
     loadingModifier: Modifier,
     pageContentScale: ContentScale,
-    pageEmitter: SharedFlow<PageMove>,
+    pageEmitterHolder: StableHolder<SharedFlow<PageMove>>,
     retry: (ReaderPage) -> Unit,
-    progress: (Int) -> Unit,
-    updateLastPageReadOffset: (Int) -> Unit
+    progress: (ReaderItem) -> Unit,
+    updateLastPageReadOffset: (Int) -> Unit,
+    requestPreloadChapter: (ReaderChapter) -> Unit,
 ) {
     BoxWithConstraints(modifier then Modifier.fillMaxSize()) {
-        val state = rememberLazyListState(currentPage, currentPageOffset)
+        val state = rememberLazyListState(pages.indexOf(currentPage).coerceAtLeast(1), currentPageOffset)
         val density = LocalDensity.current
         LaunchedEffect(Unit) {
-            pageEmitter
+            pageEmitterHolder.item
                 .mapLatest { pageMove ->
                     when (pageMove) {
                         is PageMove.Direction -> {
@@ -82,13 +82,13 @@ fun ContinuousReader(
                             state.animateScrollBy(
                                 with(density) {
                                     by.toPx()
-                                }
+                                },
                             )
                             Unit
                         }
                         is PageMove.Page -> {
-                            val (pageNumber) = pageMove
-                            if (pageNumber in 0..pages.size) {
+                            val pageNumber = pages.indexOf(pageMove.page)
+                            if (pageNumber > -1) {
                                 state.animateScrollToItem(pageNumber)
                             }
                         }
@@ -101,44 +101,47 @@ fun ContinuousReader(
                 updateLastPageReadOffset(state.firstVisibleItemScrollOffset)
             }
         }
-        LaunchedEffect(state) {
-            snapshotFlow { state.layoutInfo.visibleItemsInfo.lastOrNull()?.index }
-                .filterNotNull()
-                .collect(progress)
+        LaunchedEffect(state.layoutInfo.visibleItemsInfo.lastOrNull()?.index) {
+            val index = state.layoutInfo.visibleItemsInfo.lastOrNull()?.index
+            val page = index?.let { pages.getOrNull(it) }
+            if (page != null) {
+                progress(page)
+            }
         }
 
         val imageModifier = if (maxSize != 0) {
-            when (direction) {
-                Direction.Up, Direction.Down -> Modifier.width(maxSize.dp)
-                Direction.Left, Direction.Right -> Modifier.height(maxSize.dp)
+            when (direction.isVertical) {
+                true -> Modifier.width(maxSize.dp)
+                false -> Modifier.height(maxSize.dp)
             }
-        } else Modifier
+        } else {
+            Modifier
+        }
         val contentPadding = when (direction) {
             Direction.Right -> PaddingValues(end = padding.dp)
             Direction.Left -> PaddingValues(start = padding.dp)
             Direction.Up -> PaddingValues(top = padding.dp)
             Direction.Down -> PaddingValues(bottom = padding.dp)
         }
-        fun retry(index: Int) { pages.find { it.index == index }?.let { retry(it) } }
+        fun retry(index: Int) { pages.find { it is ReaderPage && it.index == index }?.let { retry(it as ReaderPage) } }
 
-        when (direction) {
-            Direction.Down, Direction.Up -> {
+        when (direction.isVertical) {
+            true -> {
                 LazyColumn(
                     state = state,
                     reverseLayout = direction == Direction.Up,
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
                 ) {
                     items(
+                        modifier = Modifier.fillMaxWidth()
+                            .padding(contentPadding),
                         pages = pages,
-                        paddingValues = contentPadding,
-                        previousChapter = previousChapter,
-                        currentChapter = currentChapter,
-                        nextChapter = nextChapter,
                         imageModifier = imageModifier,
                         loadingModifier = loadingModifier,
                         pageContentScale = pageContentScale,
-                        retry = ::retry
+                        retry = ::retry,
+                        requestPreloadChapter = requestPreloadChapter,
                     )
                 }
                 VerticalScrollbar(
@@ -146,34 +149,32 @@ fun ContinuousReader(
                         .fillMaxHeight()
                         .scrollbarPadding(),
                     adapter = rememberScrollbarAdapter(state),
-                    reverseLayout = direction == Direction.Up
+                    reverseLayout = direction == Direction.Up,
                 )
             }
-            Direction.Left, Direction.Right -> {
+            false -> {
                 LazyRow(
                     state = state,
                     reverseLayout = direction == Direction.Left,
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxHeight()
+                    modifier = Modifier.fillMaxHeight(),
                 ) {
                     items(
+                        modifier = Modifier.fillMaxHeight()
+                            .padding(contentPadding),
                         pages = pages,
-                        paddingValues = contentPadding,
-                        previousChapter = previousChapter,
-                        currentChapter = currentChapter,
-                        nextChapter = nextChapter,
                         imageModifier = imageModifier,
                         loadingModifier = loadingModifier,
                         pageContentScale = pageContentScale,
-                        retry = ::retry
+                        retry = ::retry,
+                        requestPreloadChapter = requestPreloadChapter,
                     )
                 }
                 HorizontalScrollbar(
                     modifier = Modifier.align(Alignment.BottomCenter)
-                        .fillMaxWidth()
-                        .scrollbarPadding(),
+                        .fillMaxWidth(),
                     adapter = rememberScrollbarAdapter(state),
-                    reverseLayout = direction == Direction.Left
+                    reverseLayout = direction == Direction.Left,
                 )
             }
         }
@@ -181,35 +182,43 @@ fun ContinuousReader(
 }
 
 private fun LazyListScope.items(
-    pages: List<ReaderPage>,
-    paddingValues: PaddingValues,
-    previousChapter: ReaderChapter?,
-    currentChapter: ReaderChapter,
-    nextChapter: ReaderChapter?,
+    modifier: Modifier,
+    pages: ImmutableList<ReaderItem>,
     imageModifier: Modifier,
     loadingModifier: Modifier,
     pageContentScale: ContentScale,
-    retry: (Int) -> Unit
+    retry: (Int) -> Unit,
+    requestPreloadChapter: (ReaderChapter) -> Unit,
 ) {
-    item {
-        ChapterSeparator(previousChapter, currentChapter)
-    }
-    items(pages) { image ->
-        Box(Modifier.padding(paddingValues)) {
-            ReaderImage(
-                imageIndex = image.index,
-                drawable = image.bitmap.collectAsState().value,
-                progress = image.progress.collectAsState().value,
-                status = image.status.collectAsState().value,
-                error = image.error.collectAsState().value,
-                imageModifier = imageModifier,
-                loadingModifier = loadingModifier,
-                contentScale = pageContentScale,
-                retry = retry
+    items(
+        pages,
+        key = {
+            when (it) {
+                is ReaderPage -> it.chapter.chapter.index to it.index
+                is ReaderPageSeparator -> it.previousChapter?.chapter?.index to it.nextChapter?.chapter?.index
+            }
+        },
+    ) { image ->
+        when (image) {
+            is ReaderPage -> Box(modifier, contentAlignment = Alignment.Center) {
+                ReaderImage(
+                    imageIndex = image.index,
+                    drawableHolder = image.bitmap.collectAsState().value,
+                    bitmapInfo = image.bitmapInfo.collectAsState().value,
+                    progress = image.progress.collectAsState().value,
+                    status = image.status.collectAsState().value,
+                    error = image.error.collectAsState().value,
+                    imageModifier = imageModifier,
+                    loadingModifier = loadingModifier,
+                    contentScale = pageContentScale,
+                    retry = retry,
+                )
+            }
+            is ReaderPageSeparator -> ChapterSeparator(
+                previousChapter = image.previousChapter,
+                nextChapter = image.nextChapter,
+                requestPreloadChapter = requestPreloadChapter,
             )
         }
-    }
-    item {
-        ChapterSeparator(previousChapter = currentChapter, nextChapter = nextChapter)
     }
 }

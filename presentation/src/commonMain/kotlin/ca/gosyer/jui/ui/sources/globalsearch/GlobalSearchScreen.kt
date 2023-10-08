@@ -8,25 +8,20 @@ package ca.gosyer.jui.ui.sources.globalsearch
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import ca.gosyer.jui.ui.base.screen.BaseScreen
 import ca.gosyer.jui.ui.manga.MangaScreen
 import ca.gosyer.jui.ui.sources.browse.SourceScreen
 import ca.gosyer.jui.ui.sources.components.LocalSourcesNavigator
 import ca.gosyer.jui.ui.sources.globalsearch.components.GlobalSearchScreenContent
-import ca.gosyer.jui.uicore.vm.viewModel
-import cafe.adriel.voyager.core.screen.Screen
-import cafe.adriel.voyager.core.screen.ScreenKey
-import cafe.adriel.voyager.core.screen.uniqueScreenKey
+import ca.gosyer.jui.ui.stateViewModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 
-class GlobalSearchScreen(private val initialQuery: String) : Screen {
-
-    override val key: ScreenKey = uniqueScreenKey
-
+class GlobalSearchScreen(private val initialQuery: String) : BaseScreen() {
     @Composable
     override fun Content() {
-        val vm = viewModel {
-            instantiate<GlobalSearchViewModel>(GlobalSearchViewModel.Params(initialQuery))
+        val vm = stateViewModel {
+            globalSearchViewModel(it, GlobalSearchViewModel.Params(initialQuery))
         }
         val sourcesNavigator = LocalSourcesNavigator.current
         val navigator = LocalNavigator.currentOrThrow
@@ -46,8 +41,8 @@ class GlobalSearchScreen(private val initialQuery: String) : Screen {
                 }
             },
             onMangaClick = {
-                navigator push ca.gosyer.jui.ui.manga.MangaScreen(it.id)
-            }
+                navigator push MangaScreen(it.id)
+            },
         )
     }
 }

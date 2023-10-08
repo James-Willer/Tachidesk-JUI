@@ -6,13 +6,16 @@
 
 package ca.gosyer.jui.ui.reader
 
-import ca.gosyer.jui.data.reader.ReaderPreferences
-import ca.gosyer.jui.data.server.interactions.ChapterInteractionHandler
+import ca.gosyer.jui.domain.chapter.interactor.GetChapterPage
+import ca.gosyer.jui.domain.reader.service.ReaderPreferences
+import ca.gosyer.jui.ui.base.image.BitmapDecoderFactory
+import ca.gosyer.jui.ui.reader.loader.PagesState
 import ca.gosyer.jui.ui.reader.loader.TachideskPageLoader
 import ca.gosyer.jui.ui.reader.model.ReaderChapter
-import ca.gosyer.jui.ui.reader.model.ReaderPage
+import com.seiko.imageloader.cache.disk.DiskCache
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.dropWhile
+import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.take
@@ -20,24 +23,29 @@ import org.lighthousegames.logging.logging
 
 class ChapterLoader(
     private val readerPreferences: ReaderPreferences,
-    private val chapterHandler: ChapterInteractionHandler
+    private val getChapterPage: GetChapterPage,
+    private val chapterCache: DiskCache,
+    private val bitmapDecoderFactory: BitmapDecoderFactory,
 ) {
-    fun loadChapter(chapter: ReaderChapter): StateFlow<List<ReaderPage>> {
+    fun loadChapter(chapter: ReaderChapter): StateFlow<PagesState> {
         if (chapterIsReady(chapter)) {
             return (chapter.state as ReaderChapter.State.Loaded).pages
         } else {
             chapter.state = ReaderChapter.State.Loading
             log.debug { "Loading pages for ${chapter.chapter.name}" }
 
-            val loader = TachideskPageLoader(chapter, readerPreferences, chapterHandler)
+            val loader = TachideskPageLoader(chapter, readerPreferences, getChapterPage, chapterCache, bitmapDecoderFactory)
 
             val pages = loader.getPages()
 
-            pages.drop(1).take(1).onEach { newPages ->
-                if (newPages.isEmpty()) {
+            pages
+                .dropWhile { it is PagesState.Loading }
+                .take(1)
+                .filterIsInstance<PagesState.Empty>()
+                .onEach {
                     chapter.state = ReaderChapter.State.Error(Exception("No pages found"))
                 }
-            }.launchIn(chapter.scope)
+                .launchIn(chapter.scope)
 
             chapter.pageLoader = loader // Assign here to fix race with unref
             chapter.state = ReaderChapter.State.Loaded(pages)

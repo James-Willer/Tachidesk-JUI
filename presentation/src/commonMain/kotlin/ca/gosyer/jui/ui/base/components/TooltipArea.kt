@@ -17,40 +17,56 @@ import androidx.compose.ui.unit.dp
 @ExperimentalFoundationApi
 expect interface TooltipPlacement
 
-fun TooltipPlacement.CursorPoint(
+fun CursorPoint(
     offset: DpOffset = DpOffset.Zero,
     alignment: Alignment = Alignment.BottomEnd,
-    windowMargin: Dp = 4.dp
-) = ca.gosyer.jui.ui.base.components.CursorPoint(offset, alignment, windowMargin)
+    windowMargin: Dp = 4.dp,
+) = CursorPointImpl(offset, alignment, windowMargin)
 
 @ExperimentalFoundationApi
-expect class CursorPoint(
-    offset: DpOffset = DpOffset.Zero,
-    alignment: Alignment = Alignment.BottomEnd,
-    windowMargin: Dp = 4.dp
+expect class CursorPointImpl(
+    offset: DpOffset,
+    alignment: Alignment,
+    windowMargin: Dp,
 ) : TooltipPlacement
 
-fun TooltipPlacement.ComponentRect(
+fun ComponentRect(
     anchor: Alignment = Alignment.BottomCenter,
     alignment: Alignment = Alignment.BottomCenter,
-    offset: DpOffset = DpOffset.Zero
-) = ca.gosyer.jui.ui.base.components.ComponentRect(anchor, alignment, offset)
+    offset: DpOffset = DpOffset.Zero,
+) = ComponentRectImpl(anchor, alignment, offset)
 
 @ExperimentalFoundationApi
-expect class ComponentRect(
-    anchor: Alignment = Alignment.BottomCenter,
-    alignment: Alignment = Alignment.BottomCenter,
-    offset: DpOffset = DpOffset.Zero
+expect class ComponentRectImpl(
+    anchor: Alignment,
+    alignment: Alignment,
+    offset: DpOffset,
 ) : TooltipPlacement
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-expect fun TooltipArea(
+fun TooltipArea(
     tooltip: @Composable () -> Unit,
     modifier: Modifier = Modifier,
     delayMillis: Int = 500,
     tooltipPlacement: TooltipPlacement = CursorPoint(
-        offset = DpOffset(0.dp, 16.dp)
+        offset = DpOffset(0.dp, 16.dp),
     ),
-    content: @Composable () -> Unit
+    content: @Composable () -> Unit,
+) = RealTooltipArea(
+    tooltip = tooltip,
+    modifier = modifier,
+    delayMillis = delayMillis,
+    tooltipPlacement = tooltipPlacement,
+    content = content,
+)
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+internal expect fun RealTooltipArea(
+    tooltip: @Composable () -> Unit,
+    modifier: Modifier,
+    delayMillis: Int,
+    tooltipPlacement: TooltipPlacement,
+    content: @Composable () -> Unit,
 )

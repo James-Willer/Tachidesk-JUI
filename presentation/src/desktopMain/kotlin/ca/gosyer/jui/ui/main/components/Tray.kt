@@ -16,22 +16,23 @@ import androidx.compose.ui.window.Tray
 import androidx.compose.ui.window.rememberTrayState
 import ca.gosyer.jui.i18n.MR
 import ca.gosyer.jui.presentation.build.BuildKonfig
-import ca.gosyer.jui.uicore.vm.LocalViewModelFactory
+import ca.gosyer.jui.ui.base.LocalViewModels
+import ca.gosyer.jui.ui.base.model.StableHolder
 import kotlinx.coroutines.launch
 import java.util.Locale
 
 @Composable
-fun ApplicationScope.Tray(icon: Painter) {
-    val vmFactory = LocalViewModelFactory.current
-    val vm = remember { vmFactory.instantiate<TrayViewModel>() }
+fun ApplicationScope.Tray(icon: StableHolder<Painter>) {
+    val viewModels = LocalViewModels.current
+    val vm = remember { viewModels.trayViewModel() }
     val trayState = rememberTrayState()
     Tray(
-        icon,
+        icon.item,
         trayState,
         tooltip = BuildKonfig.NAME,
         menu = {
             Item(MR.strings.action_close.localized(), onClick = ::exitApplication)
-        }
+        },
     )
 
     LaunchedEffect(Unit) {
@@ -40,9 +41,9 @@ fun ApplicationScope.Tray(icon: Painter) {
                 trayState.sendNotification(
                     Notification(
                         MR.strings.new_update_title.localized(),
-                        MR.strings.new_update_message.localized(Locale.getDefault(), it.version),
-                        Notification.Type.Info
-                    )
+                        MR.strings.new_update_message.localized(Locale.getDefault(), it.release.version),
+                        Notification.Type.Info,
+                    ),
                 )
             }
         }

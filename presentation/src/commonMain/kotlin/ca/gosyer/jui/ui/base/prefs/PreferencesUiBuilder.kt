@@ -28,10 +28,12 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
@@ -82,6 +84,9 @@ import com.vanpra.composematerialdialogs.listItemsMultiChoice
 import com.vanpra.composematerialdialogs.listItemsSingleChoice
 import com.vanpra.composematerialdialogs.rememberMaterialDialogState
 import com.vanpra.composematerialdialogs.title
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.ImmutableMap
+import kotlinx.collections.immutable.toImmutableList
 
 @Composable
 fun PreferenceRow(
@@ -99,19 +104,19 @@ fun PreferenceRow(
     if (enabled) {
         modifier = modifier.combinedClickable(
             onLongClick = onLongClick,
-            onClick = onClick
+            onClick = onClick,
         )
     }
     Row(
         modifier = modifier,
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         if (icon != null) {
             Icon(
                 imageVector = icon,
                 modifier = Modifier.padding(start = 16.dp).size(24.dp),
                 tint = MaterialTheme.colors.primary,
-                contentDescription = null
+                contentDescription = null,
             )
         }
         Column(Modifier.padding(horizontal = 16.dp).weight(1f)) {
@@ -124,7 +129,7 @@ fun PreferenceRow(
                     LocalContentColor.current
                 } else {
                     LocalContentColor.current.copy(alpha = ContentAlpha.disabled)
-                }
+                },
             )
             if (subtitle != null) {
                 Text(
@@ -134,7 +139,7 @@ fun PreferenceRow(
                     } else {
                         LocalContentColor.current.copy(alpha = ContentAlpha.disabled)
                     },
-                    style = MaterialTheme.typography.subtitle1
+                    style = MaterialTheme.typography.subtitle1,
                 )
             }
         }
@@ -167,7 +172,7 @@ fun SwitchPreference(
             preference.value = !preference.value
             changeListener()
         },
-        enabled = enabled
+        enabled = enabled,
     )
 }
 
@@ -181,7 +186,7 @@ fun EditTextPreference(
     enabled: Boolean = true,
     maxLines: Int = 1,
     singleLine: Boolean = true,
-    visualTransformation: VisualTransformation = VisualTransformation.None
+    visualTransformation: VisualTransformation = VisualTransformation.None,
 ) {
     val dialogState = rememberMaterialDialogState()
     PreferenceRow(
@@ -189,7 +194,7 @@ fun EditTextPreference(
         subtitle = subtitle,
         icon = icon,
         onClick = dialogState::show,
-        enabled = enabled
+        enabled = enabled,
     )
     val value by preference.collectAsState()
     MaterialDialog(
@@ -211,7 +216,7 @@ fun EditTextPreference(
             onInput = { preference.value = it },
             maxLines = maxLines,
             singleLine = singleLine,
-            modifier = Modifier.keyboardHandler(singleLine, enterAction = { it.moveFocus(FocusDirection.Next) })
+            modifier = Modifier.keyboardHandler(singleLine, enterAction = { it.moveFocus(FocusDirection.Next) }),
         )
     }
 }
@@ -219,11 +224,11 @@ fun EditTextPreference(
 @Composable
 fun <Key> ChoicePreference(
     preference: PreferenceMutableStateFlow<Key>,
-    choices: Map<Key, String>,
+    choices: ImmutableMap<Key, String>,
     title: String,
     subtitle: String? = null,
     changeListener: () -> Unit = {},
-    enabled: Boolean = true
+    enabled: Boolean = true,
 ) {
     val prefValue by preference.collectAsState()
     val dialogState = rememberMaterialDialogState()
@@ -233,29 +238,29 @@ fun <Key> ChoicePreference(
         onClick = {
             dialogState.show()
         },
-        enabled = enabled
+        enabled = enabled,
     )
     ChoiceDialog(
         state = dialogState,
-        items = choices.toList(),
+        items = choices.toList().toImmutableList(),
         selected = prefValue,
         title = title,
         onSelected = { selected ->
             preference.value = selected
             changeListener()
-        }
+        },
     )
 }
 
 @Composable
 fun <T> ChoiceDialog(
     state: MaterialDialogState,
-    items: List<Pair<T, String>>,
+    items: ImmutableList<Pair<T, String>>,
     selected: T?,
     onCloseRequest: () -> Unit = {},
     onSelected: (T) -> Unit,
     title: String,
-    buttons: @Composable MaterialDialogButtons.() -> Unit = { }
+    buttons: @Composable MaterialDialogButtons.() -> Unit = { },
 ) {
     MaterialDialog(
         state,
@@ -264,7 +269,7 @@ fun <T> ChoiceDialog(
         onCloseRequest = {
             state.hide()
             onCloseRequest()
-        }
+        },
     ) {
         title(title)
         Box {
@@ -277,14 +282,16 @@ fun <T> ChoiceDialog(
                 onChoiceChange = {
                     onSelected(items[it].first)
                     submit()
-                }
+                },
             )
-            VerticalScrollbar(
-                rememberScrollbarAdapter(listState),
-                Modifier.align(Alignment.CenterEnd)
-                    .fillMaxHeight()
-                    .scrollbarPadding()
-            )
+            Box(Modifier.matchParentSize().height(IntrinsicSize.Min)) {
+                VerticalScrollbar(
+                    rememberScrollbarAdapter(listState),
+                    Modifier.align(Alignment.CenterEnd)
+                        .fillMaxHeight()
+                        .scrollbarPadding(),
+                )
+            }
         }
     }
 }
@@ -292,10 +299,10 @@ fun <T> ChoiceDialog(
 @Composable
 fun <T> MultiSelectDialog(
     state: MaterialDialogState,
-    items: List<Pair<T, String>>,
-    selected: List<T>?,
+    items: ImmutableList<Pair<T, String>>,
+    selected: ImmutableList<T>?,
     onCloseRequest: () -> Unit = {},
-    onFinished: (List<T>) -> Unit,
+    onFinished: (ImmutableList<T>) -> Unit,
     title: String,
 ) {
     MaterialDialog(
@@ -308,7 +315,7 @@ fun <T> MultiSelectDialog(
         onCloseRequest = {
             state.hide()
             onCloseRequest()
-        }
+        },
     ) {
         title(title)
         Box {
@@ -322,15 +329,17 @@ fun <T> MultiSelectDialog(
                     ?.toSet()
                     .orEmpty(),
                 onCheckedChange = { indexes ->
-                    onFinished(indexes.map { items[it].first })
-                }
+                    onFinished(indexes.map { items[it].first }.toImmutableList())
+                },
             )
-            VerticalScrollbar(
-                rememberScrollbarAdapter(listState),
-                Modifier.align(Alignment.CenterEnd)
-                    .fillMaxHeight()
-                    .scrollbarPadding()
-            )
+            Box(Modifier.matchParentSize().height(IntrinsicSize.Min)) {
+                VerticalScrollbar(
+                    rememberScrollbarAdapter(listState),
+                    Modifier.align(Alignment.CenterEnd)
+                        .fillMaxHeight()
+                        .scrollbarPadding(),
+                )
+            }
         }
     }
 }
@@ -341,7 +350,7 @@ fun ColorPreference(
     title: String,
     subtitle: String? = null,
     enabled: Boolean = true,
-    unsetColor: Color = Color.Unspecified
+    unsetColor: Color = Color.Unspecified,
 ) {
     val initialColor = preference.value.takeOrElse { unsetColor }
     val dialogState = rememberMaterialDialogState()
@@ -362,11 +371,11 @@ fun ColorPreference(
                         .size(32.dp)
                         .clip(CircleShape)
                         .background(color = initialColor)
-                        .border(BorderStroke(1.dp, borderColor), CircleShape)
+                        .border(BorderStroke(1.dp, borderColor), CircleShape),
                 )
             }
         },
-        enabled = enabled
+        enabled = enabled,
     )
     ColorPickerDialog(
         state = dialogState,
@@ -374,7 +383,7 @@ fun ColorPreference(
         onSelected = {
             preference.value = it
         },
-        initialColor = initialColor
+        initialColor = initialColor,
     )
 }
 
@@ -416,7 +425,7 @@ fun ExpandablePreference(
     Surface(
         elevation = elevation,
         modifier = Modifier
-            .fillMaxWidth()
+            .fillMaxWidth(),
     ) {
         Column {
             Box(Modifier.clickable { expanded = !expanded }) {
@@ -437,7 +446,7 @@ fun ExpandablePreference(
             ExpandableContent(
                 visible = expanded,
                 initiallyVisible = expanded,
-                expandedContent = expandedContent
+                expandedContent = expandedContent,
             )
         }
     }
@@ -447,14 +456,14 @@ fun ExpandablePreference(
 private fun ExpandableContent(
     visible: Boolean = true,
     initiallyVisible: Boolean = false,
-    expandedContent: @Composable ColumnScope.() -> Unit
+    expandedContent: @Composable ColumnScope.() -> Unit,
 ) {
     val enterFadeIn = remember {
         fadeIn(
             animationSpec = TweenSpec(
                 durationMillis = FADE_IN_ANIMATION_DURATION,
-                easing = FastOutLinearInEasing
-            )
+                easing = FastOutLinearInEasing,
+            ),
         )
     }
     val enterExpand = remember {
@@ -464,8 +473,8 @@ private fun ExpandableContent(
         fadeOut(
             animationSpec = TweenSpec(
                 durationMillis = FADE_OUT_ANIMATION_DURATION,
-                easing = LinearOutSlowInEasing
-            )
+                easing = LinearOutSlowInEasing,
+            ),
         )
     }
     val exitCollapse = remember {
@@ -476,11 +485,11 @@ private fun ExpandableContent(
             .apply { targetState = visible },
         modifier = Modifier,
         enter = enterExpand + enterFadeIn,
-        exit = exitCollapse + exitFadeOut
+        exit = exitCollapse + exitFadeOut,
     ) {
         Column(
             modifier = Modifier.padding(8.dp),
-            content = expandedContent
+            content = expandedContent,
         )
     }
 }

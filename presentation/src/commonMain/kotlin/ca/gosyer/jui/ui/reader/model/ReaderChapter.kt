@@ -6,33 +6,40 @@
 
 package ca.gosyer.jui.ui.reader.model
 
-import ca.gosyer.jui.data.models.Chapter
+import androidx.compose.runtime.Immutable
+import ca.gosyer.jui.domain.chapter.model.Chapter
 import ca.gosyer.jui.ui.reader.loader.PageLoader
+import ca.gosyer.jui.ui.reader.loader.PagesState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.filterIsInstance
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.stateIn
 import org.lighthousegames.logging.logging
 
+@Immutable
 data class ReaderChapter(val chapter: Chapter) {
     val scope = CoroutineScope(Dispatchers.Default + Job())
 
-    var state: State =
-        State.Wait
+    private val _state = MutableStateFlow<State>(State.Wait)
+
+    var state: State
+        get() = _state.value
         set(value) {
-                field = value
-                stateRelay.value = value
-            }
+            _state.value = value
+        }
 
-    private val stateRelay by lazy { MutableStateFlow(state) }
+    val stateObserver = _state.asStateFlow()
 
-    val stateObserver by lazy { stateRelay.asStateFlow() }
-
-    val pages: StateFlow<List<ReaderPage>>?
-        get() = (state as? State.Loaded)?.pages
+    val pages: StateFlow<PagesState> = _state.filterIsInstance<State.Loaded>()
+        .flatMapLatest { it.pages }
+        .stateIn(scope, SharingStarted.Eagerly, PagesState.Loading)
 
     var pageLoader: PageLoader? = null
 
@@ -52,7 +59,7 @@ data class ReaderChapter(val chapter: Chapter) {
         object Wait : State()
         object Loading : State()
         class Error(val error: Throwable) : State()
-        class Loaded(val pages: StateFlow<List<ReaderPage>>) : State()
+        class Loaded(val pages: StateFlow<PagesState>) : State()
     }
 
     private companion object {

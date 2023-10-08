@@ -34,6 +34,7 @@ import androidx.compose.material.ProgressIndicatorDefaults
 import androidx.compose.material.Slider
 import androidx.compose.material.Surface
 import androidx.compose.material.Text
+import androidx.compose.material.TextButton
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ChevronLeft
 import androidx.compose.material.icons.rounded.NavigateBefore
@@ -41,7 +42,6 @@ import androidx.compose.material.icons.rounded.NavigateNext
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SkipPrevious
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -49,48 +49,68 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ca.gosyer.jui.core.util.replace
-import ca.gosyer.jui.data.models.MangaMeta
-import ca.gosyer.jui.data.reader.model.Direction
+import ca.gosyer.jui.domain.manga.model.MangaMeta
+import ca.gosyer.jui.domain.reader.model.Direction
 import ca.gosyer.jui.i18n.MR
 import ca.gosyer.jui.ui.reader.model.ReaderChapter
+import ca.gosyer.jui.ui.reader.model.ReaderItem
 import ca.gosyer.jui.uicore.components.AroundLayout
 import ca.gosyer.jui.uicore.components.Spinner
 import ca.gosyer.jui.uicore.resources.stringResource
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.plus
+import kotlinx.collections.immutable.toPersistentList
 import kotlin.math.roundToInt
 
 @Composable
 fun ReaderSideMenu(
     chapter: ReaderChapter,
-    currentPage: Int,
-    readerModes: List<String>,
+    pages: ImmutableList<ReaderItem>,
+    currentPage: ReaderItem?,
+    readerModes: ImmutableList<String>,
     selectedMode: String,
     onNewPageClicked: (Int) -> Unit,
     onCloseSideMenuClicked: () -> Unit,
     onSetReaderMode: (String) -> Unit,
     onPrevChapterClicked: () -> Unit,
-    onNextChapterClicked: () -> Unit
+    onNextChapterClicked: () -> Unit,
 ) {
     Surface(Modifier.fillMaxHeight().width(260.dp)) {
         Column(Modifier.fillMaxSize()) {
             val pageCount = chapter.chapter.pageCount!!
             ReaderMenuToolbar(onCloseSideMenuClicked = onCloseSideMenuClicked)
+            Spacer(Modifier.height(4.dp))
             ReaderModeSetting(
                 readerModes = readerModes,
                 selectedMode = selectedMode,
-                onSetReaderMode = onSetReaderMode
+                onSetReaderMode = onSetReaderMode,
             )
+            Spacer(Modifier.height(4.dp))
             ReaderProgressSlider(
+                pages = pages,
                 currentPage = currentPage,
                 pageCount = pageCount,
                 onNewPageClicked = onNewPageClicked,
-                isRtL = false
+                isRtL = false,
             )
+            Spacer(Modifier.height(4.dp))
+            val uriHandler = LocalUriHandler.current
+            TextButton(
+                onClick = { uriHandler.openUri(chapter.chapter.realUrl ?: return@TextButton) },
+                enabled = chapter.chapter.realUrl != null,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+            ) {
+                Text(stringResource(MR.strings.action_open_in_browser))
+            }
+            Spacer(Modifier.height(4.dp))
             NavigateChapters(
                 loadPrevChapter = onPrevChapterClicked,
-                loadNextChapter = onNextChapterClicked
+                loadNextChapter = onNextChapterClicked,
             )
         }
     }
@@ -103,7 +123,8 @@ fun ReaderExpandBottomMenu(
     chapter: ReaderChapter,
     nextChapter: ReaderChapter?,
     direction: Direction,
-    currentPage: Int,
+    pages: ImmutableList<ReaderItem>,
+    currentPage: ReaderItem?,
     navigate: (Int) -> Unit,
     readerMenuOpen: Boolean,
     movePrevChapter: () -> Unit,
@@ -113,7 +134,7 @@ fun ReaderExpandBottomMenu(
         readerMenuOpen,
         enter = slideInVertically { it },
         exit = slideOutVertically { it },
-        modifier = modifier
+        modifier = modifier,
     ) {
         val isRtL = direction == Direction.Left
         AroundLayout(
@@ -130,7 +151,7 @@ fun ReaderExpandBottomMenu(
                         .aspectRatio(1F, true),
                     shape = CircleShape,
                     backgroundColor = MaterialTheme.colors.surface.copy(alpha = 0.5F),
-                    enabled = enabled
+                    enabled = enabled,
                 ) {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Icon(Icons.Rounded.SkipPrevious, text)
@@ -149,13 +170,13 @@ fun ReaderExpandBottomMenu(
                         .aspectRatio(1F, true),
                     shape = CircleShape,
                     backgroundColor = MaterialTheme.colors.surface.copy(alpha = 0.5F),
-                    enabled = enabled
+                    enabled = enabled,
                 ) {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Icon(Icons.Rounded.SkipNext, text)
                     }
                 }
-            }
+            },
         ) {
             Card(
                 modifier = Modifier.fillMaxSize().padding(it).padding(horizontal = 8.dp),
@@ -167,7 +188,7 @@ fun ReaderExpandBottomMenu(
                     startLayout = {
                         Box(Modifier.fillMaxHeight().width(32.dp), contentAlignment = Alignment.Center) {
                             val text = if (!isRtL) {
-                                currentPage
+                                pages.indexOf(currentPage)
                             } else {
                                 chapter.chapter.pageCount!!
                             }.toString()
@@ -177,22 +198,23 @@ fun ReaderExpandBottomMenu(
                     endLayout = {
                         Box(Modifier.fillMaxHeight().width(32.dp), contentAlignment = Alignment.Center) {
                             val text = if (isRtL) {
-                                currentPage
+                                pages.indexOf(currentPage)
                             } else {
                                 chapter.chapter.pageCount!!
                             }.toString()
                             Text(text, fontSize = 15.sp)
                         }
-                    }
+                    },
                 ) { paddingValues ->
                     ReaderProgressSlider(
                         modifier = Modifier.fillMaxWidth()
                             .padding(paddingValues)
                             .padding(horizontal = 4.dp),
+                        pages = pages,
                         currentPage = currentPage,
                         pageCount = chapter.chapter.pageCount!!,
                         onNewPageClicked = navigate,
-                        isRtL = isRtL
+                        isRtL = isRtL,
                     )
                 }
             }
@@ -202,34 +224,38 @@ fun ReaderExpandBottomMenu(
 
 @Composable
 fun ReaderSheet(
-    readerModes: List<String>,
+    readerModes: ImmutableList<String>,
     selectedMode: String,
     onSetReaderMode: (String) -> Unit,
 ) {
-    Column(Modifier.fillMaxWidth()) {
+    Column(Modifier.fillMaxSize()) {
         ReaderModeSetting(readerModes, selectedMode, onSetReaderMode)
     }
 }
 
 @Composable
-fun ReaderModeSetting(readerModes: List<String>, selectedMode: String, onSetReaderMode: (String) -> Unit) {
-    val modes by derivedStateOf { listOf(MangaMeta.DEFAULT_READER_MODE) + readerModes }
+fun ReaderModeSetting(
+    readerModes: ImmutableList<String>,
+    selectedMode: String,
+    onSetReaderMode: (String) -> Unit,
+) {
+    val modes = remember { persistentListOf(MangaMeta.DEFAULT_READER_MODE) + readerModes }
     val defaultModeString = stringResource(MR.strings.default_reader_mode)
-    val displayModes by derivedStateOf { modes.replace(0, defaultModeString) }
-    val selectedModeIndex by derivedStateOf { modes.indexOf(selectedMode) }
+    val displayModes = remember { modes.replace(0, defaultModeString).toPersistentList() }
+    val selectedModeIndex = remember(selectedMode) { modes.indexOf(selectedMode) }
     Row(
         Modifier.fillMaxWidth()
             .defaultMinSize(minHeight = 56.dp)
             .padding(horizontal = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
+        horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         Text(stringResource(MR.strings.reader_mode), Modifier.weight(0.25f), maxLines = 2, fontSize = 14.sp)
         Spacer(Modifier.width(8.dp))
         Spinner(
             modifier = Modifier.weight(0.75f),
             items = displayModes,
-            selectedItemIndex = selectedModeIndex
+            selectedItemIndex = selectedModeIndex,
         ) {
             onSetReaderMode(modes[it])
         }
@@ -250,14 +276,15 @@ private fun ReaderMenuToolbar(onCloseSideMenuClicked: () -> Unit) {
 @Composable
 private fun ReaderProgressSlider(
     modifier: Modifier = Modifier,
-    currentPage: Int,
+    pages: ImmutableList<ReaderItem>,
+    currentPage: ReaderItem?,
     pageCount: Int,
     onNewPageClicked: (Int) -> Unit,
-    isRtL: Boolean
+    isRtL: Boolean,
 ) {
     val animatedProgress by animateFloatAsState(
-        targetValue = currentPage.toFloat(),
-        animationSpec = ProgressIndicatorDefaults.ProgressAnimationSpec
+        targetValue = pages.indexOf(currentPage).toFloat(),
+        animationSpec = ProgressIndicatorDefaults.ProgressAnimationSpec,
     )
     var isValueChanging by remember { mutableStateOf(false) }
     Slider(
@@ -274,15 +301,20 @@ private fun ReaderProgressSlider(
         modifier = modifier.let {
             if (isRtL) {
                 it then Modifier.rotate(180F)
-            } else it
-        }
+            } else {
+                it
+            }
+        },
     )
 }
 
 @Composable
-private fun NavigateChapters(loadPrevChapter: () -> Unit, loadNextChapter: () -> Unit) {
+private fun NavigateChapters(
+    loadPrevChapter: () -> Unit,
+    loadNextChapter: () -> Unit,
+) {
     Divider(Modifier.padding(horizontal = 4.dp, vertical = 8.dp))
-    Row(horizontalArrangement = Arrangement.SpaceBetween,) {
+    Row(horizontalArrangement = Arrangement.SpaceBetween) {
         OutlinedButton(loadPrevChapter, Modifier.weight(0.5F)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 val nextChapter = stringResource(MR.strings.nav_prev_chapter)

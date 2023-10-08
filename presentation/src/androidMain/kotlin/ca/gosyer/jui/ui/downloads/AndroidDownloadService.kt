@@ -8,18 +8,18 @@ package ca.gosyer.jui.ui.downloads
 
 import android.content.Intent
 import androidx.core.content.ContextCompat
-import ca.gosyer.jui.data.base.WebsocketService
-import ca.gosyer.jui.data.download.DownloadService
+import ca.gosyer.jui.domain.base.WebsocketService
+import ca.gosyer.jui.domain.download.service.DownloadService
 import ca.gosyer.jui.uicore.vm.ContextWrapper
 
 internal actual fun startDownloadService(
     contextWrapper: ContextWrapper,
     downloadService: DownloadService,
-    actions: WebsocketService.Actions
+    actions: WebsocketService.Actions,
 ) {
     val intent = Intent(
         contextWrapper,
-        Class.forName("ca.gosyer.jui.android.data.download.AndroidDownloadService")
+        Class.forName("ca.gosyer.jui.android.data.download.AndroidDownloadService"),
     ).apply {
         action = actions.name
     }

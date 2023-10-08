@@ -7,9 +7,15 @@
 package ca.gosyer.jui.ui.sources.settings.components
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.add
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -29,6 +35,7 @@ import ca.gosyer.jui.ui.base.navigation.Toolbar
 import ca.gosyer.jui.ui.base.prefs.ChoiceDialog
 import ca.gosyer.jui.ui.base.prefs.MultiSelectDialog
 import ca.gosyer.jui.ui.base.prefs.PreferenceRow
+import ca.gosyer.jui.ui.main.components.bottomNav
 import ca.gosyer.jui.ui.sources.settings.model.SourceSettingsView
 import ca.gosyer.jui.ui.sources.settings.model.SourceSettingsView.CheckBox
 import ca.gosyer.jui.ui.sources.settings.model.SourceSettingsView.EditText
@@ -40,6 +47,8 @@ import ca.gosyer.jui.uicore.components.VerticalScrollbar
 import ca.gosyer.jui.uicore.components.keyboardHandler
 import ca.gosyer.jui.uicore.components.rememberScrollbarAdapter
 import ca.gosyer.jui.uicore.components.scrollbarPadding
+import ca.gosyer.jui.uicore.insets.navigationBars
+import ca.gosyer.jui.uicore.insets.statusBars
 import ca.gosyer.jui.uicore.resources.stringResource
 import com.vanpra.composematerialdialogs.MaterialDialog
 import com.vanpra.composematerialdialogs.TextFieldStyle
@@ -47,21 +56,33 @@ import com.vanpra.composematerialdialogs.input
 import com.vanpra.composematerialdialogs.message
 import com.vanpra.composematerialdialogs.rememberMaterialDialogState
 import com.vanpra.composematerialdialogs.title
-import kotlin.collections.List as KtList
+import kotlinx.collections.immutable.ImmutableList
 
 @Composable
-fun SourceSettingsScreenContent(
-    settings: KtList<SourceSettingsView<*, *>>
-) {
+fun SourceSettingsScreenContent(settings: ImmutableList<SourceSettingsView<*, *>>) {
     Scaffold(
+        modifier = Modifier.windowInsetsPadding(
+            WindowInsets.statusBars.add(
+                WindowInsets.navigationBars.only(WindowInsetsSides.Horizontal),
+            ),
+        ),
         topBar = {
             Toolbar(stringResource(MR.strings.location_settings))
-        }
+        },
     ) { padding ->
         Box(Modifier.padding(padding)) {
             val state = rememberLazyListState()
-            LazyColumn(Modifier.fillMaxSize(), state) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                state = state,
+                contentPadding = WindowInsets.bottomNav.add(
+                    WindowInsets.navigationBars.only(
+                        WindowInsetsSides.Bottom,
+                    ),
+                ).asPaddingValues(),
+            ) {
                 items(settings, { it.props.hashCode() }) {
+                    @Suppress("UNCHECKED_CAST")
                     when (it) {
                         is CheckBox, is Switch -> {
                             TwoStatePreference(it as TwoState, it is CheckBox)
@@ -83,13 +104,23 @@ fun SourceSettingsScreenContent(
                 Modifier.align(Alignment.CenterEnd)
                     .fillMaxHeight()
                     .scrollbarPadding()
+                    .windowInsetsPadding(
+                        WindowInsets.bottomNav.add(
+                            WindowInsets.navigationBars.only(
+                                WindowInsetsSides.Bottom,
+                            ),
+                        ),
+                    ),
             )
         }
     }
 }
 
 @Composable
-private fun TwoStatePreference(twoState: TwoState, checkbox: Boolean) {
+private fun TwoStatePreference(
+    twoState: TwoState,
+    checkbox: Boolean,
+) {
     val state by twoState.state.collectAsState()
     val title = remember(state) { twoState.title ?: twoState.summary ?: "No title" }
     val subtitle = remember(state) {
@@ -109,7 +140,7 @@ private fun TwoStatePreference(twoState: TwoState, checkbox: Boolean) {
             } else {
                 Switch(checked = state, onCheckedChange = null)
             }
-        }
+        },
     )
 }
 
@@ -130,14 +161,14 @@ private fun ListPreference(list: List) {
         subtitle = subtitle,
         onClick = {
             dialogState.show()
-        }
+        },
     )
     ChoiceDialog(
         dialogState,
         list.getOptions(),
         state,
         onSelected = list::updateState,
-        title = title
+        title = title,
     )
 }
 
@@ -159,14 +190,14 @@ private fun MultiSelectPreference(multiSelect: MultiSelect) {
         subtitle = subtitle,
         onClick = {
             dialogState.show()
-        }
+        },
     )
     MultiSelectDialog(
         dialogState,
         multiSelect.getOptions(),
         state,
         onFinished = multiSelect::updateState,
-        title = dialogTitle
+        title = dialogTitle,
     )
 }
 
@@ -185,7 +216,7 @@ private fun EditTextPreference(editText: EditText) {
     PreferenceRow(
         title,
         subtitle = subtitle,
-        onClick = dialogState::show
+        onClick = dialogState::show,
     )
     MaterialDialog(
         dialogState,
@@ -203,7 +234,7 @@ private fun EditTextPreference(editText: EditText) {
             label = "",
             textFieldStyle = TextFieldStyle.Outlined,
             onInput = { editText.updateState(it) },
-            modifier = Modifier.keyboardHandler()
+            modifier = Modifier.keyboardHandler(),
         )
     }
 }

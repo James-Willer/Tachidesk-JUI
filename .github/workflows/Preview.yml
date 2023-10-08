@@ -3,7 +3,7 @@ name: Preview CI
 on:
   push:
     branches:
-      - master
+      - preview
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -20,28 +20,28 @@ jobs:
             arch: x64
             os: ubuntu-latest
             shell: bash
-            build: packageUberJarForCurrentOS packageDeb
+            build: packageReleaseUberJarForCurrentOS packageReleaseDeb
             setupCl: ./scripts/SetupClUnix.sh
 
           - runtime: linux-fedora-x64
             arch: x64
             os: ubuntu-latest
             shell: bash
-            build: packageRpm
+            build: packageReleaseRpm
             setupCl: ./scripts/SetupClUnix.sh
 
           - runtime: osx-x64
             arch: x64
             os: macOS-latest
             shell: bash
-            build: packageUberJarForCurrentOS packageDmg notarizeDmg
+            build: packageReleaseUberJarForCurrentOS packageReleaseDmg notarizeReleaseDmg
             setupCl: ./scripts/SetupClUnix.sh
 
           - runtime: win-x64
             arch: x64
             os: windows-latest
             shell: powershell
-            build: packageUberJarForCurrentOS packageMsi
+            build: packageReleaseUberJarForCurrentOS packageReleaseMsi
             setupCl: ./scripts/SetupClWindows.ps1
 
           - runtime: android
@@ -57,13 +57,14 @@ jobs:
       run:
         shell: ${{ matrix.shell }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-java@v1
+      - uses: actions/setup-java@v3
         if: ${{ matrix.runtime != 'linux-fedora-x64' }}
         with:
+          distribution: 'temurin'
           java-version: '17'
           architecture: ${{ matrix.arch }}
 
@@ -115,18 +116,19 @@ jobs:
 
       # Upload runner package tar.gz/zip as artifact
       - name: Publish Artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: runner-package-${{ matrix.runtime }}
           path: |
             desktop/build/compose/binaries/main/*/
+            desktop/build/compose/binaries/main-release/*/
             desktop/build/compose/jars/
             !desktop/build/compose/binaries/main/app/
             ${{ env.SIGNED_RELEASE_FILE }}
 
         # Upload runner errors
       - name: Upload error logs
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         if: ${{ failure() }}
         with:
           name: runner-errors-${{ matrix.runtime }}
@@ -137,12 +139,12 @@ jobs:
     needs: [ BuildBinaries ]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
       - name: Download Build Artifacts
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
 
       - name: Fix rpm java dependency
         uses: Syer10/Fedora-Java17-Action@v1
@@ -153,7 +155,7 @@ jobs:
         run: ./scripts/DebDependencyFix.sh
 
       - name: Fix filenames
-        run: ./scripts/NamingFix.sh
+        run: ./scripts/NamingFix.sh preview
 
       - name: Get previous release
         id: last_release
@@ -185,7 +187,7 @@ jobs:
 
       - uses: ncipollo/release-action@v1
         with:
-          artifacts: "*/binaries/main/*/*.*,*/jars/*.jar,*/android/build/outputs/apk/release/*.apk"
+          artifacts: "*/binaries/main/*/*.*,*/binaries/main-release/*/*.*,*/jars/*.jar,*/android/build/outputs/apk/release/*.apk"
           token: ${{ secrets.DEPLOY_PREVIEW_TOKEN }}
           repo: Tachidesk-JUI-preview
           tag: r${{ env.COMMIT_COUNT }}
@@ -199,7 +201,7 @@ jobs:
       - name: Prune old releases
         uses: dev-drprasad/delete-older-releases@v0.2.0
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.DEPLOY_PREVIEW_TOKEN }}
         with:
           keep_latest: 15
           delete_tags: true

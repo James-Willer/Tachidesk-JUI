@@ -23,24 +23,23 @@ import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import ca.gosyer.jui.uicore.image.KamelImage
-import io.kamel.core.Resource
+import ca.gosyer.jui.uicore.image.ImageLoaderImage
 
 @Composable
 fun MangaGridItem(
     title: String,
-    cover: Resource<Painter>,
+    data: Any,
     onClick: () -> Unit = {},
 ) {
     val fontStyle = LocalTextStyle.current.merge(
-        TextStyle(letterSpacing = 0.sp, fontFamily = FontFamily.SansSerif, fontSize = 14.sp)
+        TextStyle(letterSpacing = 0.sp, fontFamily = FontFamily.SansSerif, fontSize = 14.sp),
     )
 
     Surface(
@@ -50,10 +49,10 @@ fun MangaGridItem(
             .aspectRatio(mangaAspectRatio)
             .padding(8.dp),
         elevation = 4.dp,
-        shape = RoundedCornerShape(4.dp)
+        shape = RoundedCornerShape(4.dp),
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            KamelImage(cover, title, contentScale = ContentScale.Crop)
+            ImageLoaderImage(data, title, contentScale = ContentScale.Crop, filterQuality = FilterQuality.Medium)
             Box(modifier = Modifier.fillMaxSize().then(shadowGradient))
             Text(
                 text = title,
@@ -76,7 +75,7 @@ private val shadowGradient = Modifier.drawWithCache {
         0.75f to Color.Transparent,
         1.0f to Color(0xAA000000),
         start = Offset(0f, 0f),
-        end = Offset(0f, size.height)
+        end = Offset(0f, size.height),
     )
     onDrawBehind {
         drawRect(gradient)

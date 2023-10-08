@@ -30,7 +30,7 @@ fun SourceMangaBadges(
             text = stringResource(MR.strings.in_library),
             modifier = Modifier.background(MaterialTheme.colors.primary).then(BadgesInnerPadding),
             style = MaterialTheme.typography.caption,
-            color = MaterialTheme.colors.onPrimary
+            color = MaterialTheme.colors.onPrimary,
         )
     }
 }

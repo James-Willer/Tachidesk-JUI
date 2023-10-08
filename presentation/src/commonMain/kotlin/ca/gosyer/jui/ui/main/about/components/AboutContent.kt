@@ -11,32 +11,49 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.add
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.CircularProgressIndicator
 import androidx.compose.material.Divider
 import androidx.compose.material.Icon
+import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Scaffold
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastForEach
-import ca.gosyer.jui.data.models.About
-import ca.gosyer.jui.data.update.UpdateChecker
+import ca.gosyer.jui.domain.settings.model.About
+import ca.gosyer.jui.domain.updates.interactor.UpdateChecker
 import ca.gosyer.jui.i18n.MR
 import ca.gosyer.jui.presentation.build.BuildKonfig
 import ca.gosyer.jui.ui.base.navigation.Toolbar
 import ca.gosyer.jui.ui.base.prefs.PreferenceRow
+import ca.gosyer.jui.ui.main.components.bottomNav
+import ca.gosyer.jui.uicore.components.VerticalScrollbar
+import ca.gosyer.jui.uicore.components.rememberScrollbarAdapter
+import ca.gosyer.jui.uicore.components.scrollbarPadding
+import ca.gosyer.jui.uicore.insets.navigationBars
+import ca.gosyer.jui.uicore.insets.statusBars
 import ca.gosyer.jui.uicore.resources.stringResource
 import ca.gosyer.jui.uicore.resources.toPainter
 import com.google.accompanist.flowlayout.FlowMainAxisAlignment
@@ -49,41 +66,70 @@ fun AboutContent(
     about: About?,
     formattedBuildTime: String,
     checkForUpdates: () -> Unit,
-    openSourceLicenses: () -> Unit
+    openSourceLicenses: () -> Unit,
 ) {
     Scaffold(
+        modifier = Modifier.windowInsetsPadding(
+            WindowInsets.statusBars.add(
+                WindowInsets.navigationBars.only(WindowInsetsSides.Horizontal),
+            ),
+        ),
         topBar = {
             Toolbar(stringResource(MR.strings.location_about))
-        }
+        },
     ) {
-        LazyColumn(Modifier.fillMaxWidth().padding(it)) {
-            item {
-                IconImage()
+        Box(Modifier.padding(it)) {
+            val state = rememberLazyListState()
+            LazyColumn(
+                modifier = Modifier.fillMaxWidth(),
+                state = state,
+                contentPadding = WindowInsets.bottomNav.add(
+                    WindowInsets.navigationBars.only(
+                        WindowInsetsSides.Bottom,
+                    ),
+                ).asPaddingValues(),
+            ) {
+                item {
+                    IconImage()
+                }
+                item {
+                    Divider()
+                }
+                item {
+                    CheckForUpdates(checkForUpdates)
+                }
+                item {
+                    ClientVersionInfo()
+                }
+                item {
+                    ServerVersionInfo(about, formattedBuildTime)
+                }
+                item {
+                    WhatsNew()
+                }
+                item {
+                    HelpTranslate()
+                }
+                item {
+                    OpenSourceLicenses(openSourceLicenses)
+                }
+                item {
+                    LinkDisplay()
+                }
             }
-            item {
-                Divider()
-            }
-            item {
-                CheckForUpdates(checkForUpdates)
-            }
-            item {
-                ClientVersionInfo()
-            }
-            item {
-                ServerVersionInfo(about, formattedBuildTime)
-            }
-            item {
-                WhatsNew()
-            }
-            item {
-                HelpTranslate()
-            }
-            item {
-                OpenSourceLicenses(openSourceLicenses)
-            }
-            item {
-                LinkDisplay()
-            }
+            VerticalScrollbar(
+                modifier = Modifier.align(Alignment.CenterEnd)
+                    .fillMaxHeight()
+                    .scrollbarPadding()
+                    .windowInsetsPadding(
+                        WindowInsets.bottomNav.add(
+                            WindowInsets.navigationBars.only(
+                                WindowInsetsSides.Bottom,
+                            ),
+                        ),
+                    ),
+                adapter = rememberScrollbarAdapter(state),
+            )
         }
     }
 }
@@ -94,7 +140,7 @@ private fun IconImage() {
         Image(
             painter = MR.images.icon.toPainter(),
             contentDescription = "icon",
-            modifier = Modifier.height(140.dp).padding(vertical = 8.dp)
+            modifier = Modifier.height(140.dp).padding(vertical = 8.dp),
         )
     }
 }
@@ -103,7 +149,7 @@ private fun IconImage() {
 private fun CheckForUpdates(checkForUpdates: () -> Unit) {
     PreferenceRow(
         title = stringResource(MR.strings.update_checker),
-        onClick = checkForUpdates
+        onClick = checkForUpdates,
     )
 }
 
@@ -123,14 +169,17 @@ private fun ClientVersionInfo() {
             clipboardManager.setText(
                 buildAnnotatedString {
                     append(getDebugInfo())
-                }
+                },
             )
-        }
+        },
     )
 }
 
 @Composable
-private fun ServerVersionInfo(about: About?, formattedBuildTime: String) {
+private fun ServerVersionInfo(
+    about: About?,
+    formattedBuildTime: String,
+) {
     if (about == null) {
         Box(Modifier.fillMaxWidth().height(48.dp), contentAlignment = Alignment.Center) {
             CircularProgressIndicator()
@@ -138,7 +187,7 @@ private fun ServerVersionInfo(about: About?, formattedBuildTime: String) {
     } else {
         PreferenceRow(
             title = stringResource(MR.strings.server_version),
-            subtitle = "${about.buildType.name} ${about.version}-${about.revision} ($formattedBuildTime)"
+            subtitle = "${about.buildType.name} ${about.version}-${about.revision} ($formattedBuildTime)",
         )
     }
 }
@@ -150,7 +199,7 @@ private fun WhatsNew() {
         title = stringResource(MR.strings.whats_new),
         onClick = {
             uriHandler.openUri(UpdateChecker.RELEASE_URL)
-        }
+        },
     )
 }
 
@@ -161,7 +210,7 @@ private fun HelpTranslate() {
         title = stringResource(MR.strings.help_translate),
         onClick = {
             uriHandler.openUri("https://hosted.weblate.org/projects/tachideskjui/desktop/")
-        }
+        },
     )
 }
 
@@ -169,7 +218,7 @@ private fun HelpTranslate() {
 private fun OpenSourceLicenses(openSourceLicenses: () -> Unit) {
     PreferenceRow(
         title = stringResource(MR.strings.open_source_licenses),
-        onClick = openSourceLicenses
+        onClick = openSourceLicenses,
     )
 }
 
@@ -181,7 +230,7 @@ sealed class LinkIcon {
 enum class Link(val nameRes: StringResource, val icon: LinkIcon, val uri: String) {
     Github(MR.strings.github, LinkIcon.Resource(MR.images.github), "https://github.com/Suwayomi/Tachidesk-JUI"),
     Discord(MR.strings.discord, LinkIcon.Resource(MR.images.discord), "https://discord.gg/DDZdqZWaHA"),
-    Reddit(MR.strings.reddit, LinkIcon.Resource(MR.images.reddit), "https://reddit.com/r/Tachidesk/")
+    Reddit(MR.strings.reddit, LinkIcon.Resource(MR.images.reddit), "https://reddit.com/r/Tachidesk/"),
 }
 
 @Composable
@@ -192,9 +241,12 @@ private fun LinkDisplay() {
             if (maxWidth > 720.dp) {
                 Link.values().asList().fastForEach {
                     Column(
-                        Modifier.clickable { uriHandler.openUri(it.uri) }
+                        Modifier
+                            .width(92.dp)
+                            .clip(MaterialTheme.shapes.medium)
+                            .clickable { uriHandler.openUri(it.uri) }
                             .padding(horizontal = 16.dp, vertical = 8.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
+                        horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
                         val name = stringResource(it.nameRes)
                         val modifier = Modifier.size(48.dp)
@@ -202,12 +254,12 @@ private fun LinkDisplay() {
                             is LinkIcon.Resource -> Icon(
                                 painter = it.icon.res.toPainter(),
                                 contentDescription = name,
-                                modifier = modifier
+                                modifier = modifier,
                             )
                             is LinkIcon.Icon -> Icon(
                                 imageVector = it.icon.icon,
                                 contentDescription = name,
-                                modifier = modifier
+                                modifier = modifier,
                             )
                         }
                         Text(name)
@@ -218,19 +270,19 @@ private fun LinkDisplay() {
                     Box(
                         modifier = Modifier.clickable { uriHandler.openUri(it.uri) }
                             .padding(horizontal = 16.dp, vertical = 8.dp)
-                            .size(32.dp)
+                            .size(32.dp),
                     ) {
                         val name = stringResource(it.nameRes)
                         when (it.icon) {
                             is LinkIcon.Resource -> Icon(
                                 painter = it.icon.res.toPainter(),
                                 contentDescription = name,
-                                modifier = Modifier.fillMaxSize()
+                                modifier = Modifier.fillMaxSize(),
                             )
                             is LinkIcon.Icon -> Icon(
                                 imageVector = it.icon.icon,
                                 contentDescription = name,
-                                modifier = Modifier.fillMaxSize()
+                                modifier = Modifier.fillMaxSize(),
                             )
                         }
                     }

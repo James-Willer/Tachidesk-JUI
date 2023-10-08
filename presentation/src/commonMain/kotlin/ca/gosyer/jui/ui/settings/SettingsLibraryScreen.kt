@@ -10,11 +10,17 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.add
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.ContentAlpha
@@ -33,23 +39,26 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import ca.gosyer.jui.data.library.LibraryPreferences
-import ca.gosyer.jui.data.library.model.DisplayMode
-import ca.gosyer.jui.data.server.interactions.CategoryInteractionHandler
+import ca.gosyer.jui.domain.category.interactor.GetCategories
+import ca.gosyer.jui.domain.library.model.DisplayMode
+import ca.gosyer.jui.domain.library.service.LibraryPreferences
 import ca.gosyer.jui.i18n.MR
 import ca.gosyer.jui.ui.base.dialog.getMaterialDialogProperties
 import ca.gosyer.jui.ui.base.navigation.Toolbar
 import ca.gosyer.jui.ui.base.prefs.ChoicePreference
 import ca.gosyer.jui.ui.base.prefs.PreferenceRow
 import ca.gosyer.jui.ui.categories.rememberCategoriesLauncher
+import ca.gosyer.jui.ui.main.components.bottomNav
+import ca.gosyer.jui.ui.viewModel
 import ca.gosyer.jui.uicore.components.VerticalScrollbar
 import ca.gosyer.jui.uicore.components.rememberScrollbarAdapter
 import ca.gosyer.jui.uicore.components.scrollbarPadding
+import ca.gosyer.jui.uicore.insets.navigationBars
+import ca.gosyer.jui.uicore.insets.statusBars
 import ca.gosyer.jui.uicore.prefs.PreferenceMutableStateFlow
 import ca.gosyer.jui.uicore.resources.stringResource
 import ca.gosyer.jui.uicore.vm.ContextWrapper
 import ca.gosyer.jui.uicore.vm.ViewModel
-import ca.gosyer.jui.uicore.vm.viewModel
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.core.screen.ScreenKey
 import cafe.adriel.voyager.core.screen.uniqueScreenKey
@@ -57,13 +66,12 @@ import com.vanpra.composematerialdialogs.MaterialDialog
 import com.vanpra.composematerialdialogs.MaterialDialogState
 import com.vanpra.composematerialdialogs.rememberMaterialDialogState
 import com.vanpra.composematerialdialogs.title
+import kotlinx.collections.immutable.ImmutableMap
+import kotlinx.collections.immutable.toImmutableMap
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.launch
 import me.tatarka.inject.annotations.Inject
-import org.lighthousegames.logging.logging
 import kotlin.math.roundToInt
 
 class SettingsLibraryScreen : Screen {
@@ -71,7 +79,7 @@ class SettingsLibraryScreen : Screen {
 
     @Composable
     override fun Content() {
-        val vm = viewModel<SettingsLibraryViewModel>()
+        val vm = viewModel { settingsLibraryViewModel() }
         val categoriesLauncher = rememberCategoriesLauncher(vm::refreshCategoryCount)
         SettingsLibraryScreenContent(
             showAllCategory = vm.showAllCategory,
@@ -80,73 +88,80 @@ class SettingsLibraryScreen : Screen {
             gridColumns = vm.gridColumns,
             gridSize = vm.gridSize,
             categoriesSize = vm.categories.collectAsState().value,
-            openCategoriesScreen = categoriesLauncher::open
+            openCategoriesScreen = categoriesLauncher::open,
         )
         categoriesLauncher.CategoriesWindow()
     }
 }
 
-class SettingsLibraryViewModel @Inject constructor(
-    libraryPreferences: LibraryPreferences,
-    private val categoryHandler: CategoryInteractionHandler,
-    contextWrapper: ContextWrapper
-) : ViewModel(contextWrapper) {
+class SettingsLibraryViewModel
+    @Inject
+    constructor(
+        libraryPreferences: LibraryPreferences,
+        private val getCategories: GetCategories,
+        contextWrapper: ContextWrapper,
+    ) : ViewModel(contextWrapper) {
+        val displayMode = libraryPreferences.displayMode().asStateFlow()
+        val gridColumns = libraryPreferences.gridColumns().asStateFlow()
+        val gridSize = libraryPreferences.gridSize().asStateFlow()
 
-    val displayMode = libraryPreferences.displayMode().asStateFlow()
-    val gridColumns = libraryPreferences.gridColumns().asStateFlow()
-    val gridSize = libraryPreferences.gridSize().asStateFlow()
+        val showAllCategory = libraryPreferences.showAllCategory().asStateFlow()
+        private val _categories = MutableStateFlow(0)
+        val categories = _categories.asStateFlow()
 
-    val showAllCategory = libraryPreferences.showAllCategory().asStateFlow()
-    private val _categories = MutableStateFlow(0)
-    val categories = _categories.asStateFlow()
+        init {
+            refreshCategoryCount()
+        }
 
-    init {
-        refreshCategoryCount()
-    }
-
-    fun refreshCategoryCount() {
-        categoryHandler.getCategories(true)
-            .onEach {
-                _categories.value = it.size
+        fun refreshCategoryCount() {
+            scope.launch {
+                _categories.value = getCategories.await(true, onError = { toast(it.message.orEmpty()) })?.size ?: 0
             }
-            .catch {
-                log.warn(it) { "Error getting categories" }
-            }
-            .launchIn(scope)
-    }
+        }
 
-    @Composable
-    fun getDisplayModeChoices() = DisplayMode.values()
-        .associateWith { stringResource(it.res) }
-
-    private companion object {
-        private val log = logging()
+        @Composable
+        fun getDisplayModeChoices() =
+            DisplayMode.values()
+                .associateWith { stringResource(it.res) }
+                .toImmutableMap()
     }
-}
 
 @Composable
 fun SettingsLibraryScreenContent(
     displayMode: PreferenceMutableStateFlow<DisplayMode>,
-    displayModeChoices: Map<DisplayMode, String>,
+    displayModeChoices: ImmutableMap<DisplayMode, String>,
     gridColumns: PreferenceMutableStateFlow<Int>,
     gridSize: PreferenceMutableStateFlow<Int>,
     showAllCategory: PreferenceMutableStateFlow<Boolean>,
     categoriesSize: Int,
-    openCategoriesScreen: () -> Unit
+    openCategoriesScreen: () -> Unit,
 ) {
     Scaffold(
+        modifier = Modifier.windowInsetsPadding(
+            WindowInsets.statusBars.add(
+                WindowInsets.navigationBars.only(WindowInsetsSides.Horizontal),
+            ),
+        ),
         topBar = {
             Toolbar(stringResource(MR.strings.settings_library_screen))
-        }
+        },
     ) {
         Box(Modifier.padding(it)) {
             val state = rememberLazyListState()
-            LazyColumn(Modifier.fillMaxSize(), state) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                state = state,
+                contentPadding = WindowInsets.bottomNav.add(
+                    WindowInsets.navigationBars.only(
+                        WindowInsetsSides.Bottom,
+                    ),
+                ).asPaddingValues(),
+            ) {
                 item {
                     ChoicePreference(
                         preference = displayMode,
                         choices = displayModeChoices,
-                        title = stringResource(MR.strings.display_mode)
+                        title = stringResource(MR.strings.display_mode),
                     )
                 }
                 item {
@@ -155,7 +170,7 @@ fun SettingsLibraryScreenContent(
                         columnPreference = gridColumns,
                         sizePreference = gridSize,
                         title = stringResource(MR.strings.items_per_row),
-                        enabled = displayModePref != DisplayMode.List
+                        enabled = displayModePref != DisplayMode.List,
                     )
                 }
                 /*item {
@@ -171,7 +186,7 @@ fun SettingsLibraryScreenContent(
                     PreferenceRow(
                         stringResource(MR.strings.location_categories),
                         onClick = { openCategoriesScreen() },
-                        subtitle = categoriesSize.toString()
+                        subtitle = categoriesSize.toString(),
                     )
                 }
             }
@@ -180,6 +195,13 @@ fun SettingsLibraryScreenContent(
                 Modifier.align(Alignment.CenterEnd)
                     .fillMaxHeight()
                     .scrollbarPadding()
+                    .windowInsetsPadding(
+                        WindowInsets.bottomNav.add(
+                            WindowInsets.navigationBars.only(
+                                WindowInsetsSides.Bottom,
+                            ),
+                        ),
+                    ),
             )
         }
     }
@@ -190,7 +212,7 @@ private fun GridPreference(
     columnPreference: PreferenceMutableStateFlow<Int>,
     sizePreference: PreferenceMutableStateFlow<Int>,
     title: String,
-    enabled: Boolean
+    enabled: Boolean,
 ) {
     val columnPrefValue by columnPreference.collectAsState()
     val sizePrefValue by sizePreference.collectAsState()
@@ -205,7 +227,7 @@ private fun GridPreference(
         onClick = {
             dialogState.show()
         },
-        enabled = enabled
+        enabled = enabled,
     )
     GridPrefDialog(
         state = dialogState,
@@ -215,7 +237,7 @@ private fun GridPreference(
         onSelected = { columns, size ->
             columnPreference.value = columns
             sizePreference.value = size
-        }
+        },
     )
 }
 
@@ -226,7 +248,7 @@ private fun GridPrefDialog(
     initialSize: Int,
     onCloseRequest: () -> Unit = {},
     onSelected: (columns: Int, size: Int) -> Unit,
-    title: String
+    title: String,
 ) {
     var columns by remember(initialColumns) { mutableStateOf(initialColumns.toFloat()) }
     var size by remember(initialSize) { mutableStateOf(initialSize.toFloat()) }
@@ -244,7 +266,7 @@ private fun GridPrefDialog(
         onCloseRequest = {
             state.hide()
             onCloseRequest()
-        }
+        },
     ) {
         title(title)
         Column(Modifier.padding(horizontal = 8.dp)) {
@@ -256,7 +278,7 @@ private fun GridPrefDialog(
                 },
                 modifier = Modifier.fillMaxWidth(),
                 valueRange = 0F..10F,
-                steps = 10 - 2
+                steps = 10 - 2,
             )
             val columnsInt = columns.roundToInt()
             val adaptive = columnsInt < 1
@@ -267,7 +289,7 @@ private fun GridPrefDialog(
                     columnsInt.toString()
                 },
                 color = LocalContentColor.current.copy(alpha = ContentAlpha.disabled),
-                fontSize = 12.sp
+                fontSize = 12.sp,
             )
 
             AnimatedVisibility(adaptive) {
@@ -281,14 +303,14 @@ private fun GridPrefDialog(
                         },
                         modifier = Modifier.fillMaxWidth(),
                         valueRange = 90F..300F,
-                        steps = 21 - 2
+                        steps = 21 - 2,
                     )
                     val sizeInt = size.roundToInt()
                     val newSize = (10 - sizeInt % 10) + sizeInt
                     Text(
                         newSize.toString(),
                         color = LocalContentColor.current.copy(alpha = ContentAlpha.disabled),
-                        fontSize = 12.sp
+                        fontSize = 12.sp,
                     )
                 }
             }

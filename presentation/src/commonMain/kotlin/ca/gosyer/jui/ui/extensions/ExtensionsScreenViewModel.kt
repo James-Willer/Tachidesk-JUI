@@ -6,154 +6,225 @@
 
 package ca.gosyer.jui.ui.extensions
 
+import androidx.compose.runtime.Immutable
 import androidx.compose.ui.text.intl.Locale
+import ca.gosyer.jui.core.io.saveTo
 import ca.gosyer.jui.core.lang.displayName
-import ca.gosyer.jui.data.extension.ExtensionPreferences
-import ca.gosyer.jui.data.models.Extension
-import ca.gosyer.jui.data.server.interactions.ExtensionInteractionHandler
+import ca.gosyer.jui.core.lang.throwIfCancellation
+import ca.gosyer.jui.domain.extension.interactor.GetExtensionList
+import ca.gosyer.jui.domain.extension.interactor.InstallExtension
+import ca.gosyer.jui.domain.extension.interactor.InstallExtensionFile
+import ca.gosyer.jui.domain.extension.interactor.UninstallExtension
+import ca.gosyer.jui.domain.extension.interactor.UpdateExtension
+import ca.gosyer.jui.domain.extension.model.Extension
+import ca.gosyer.jui.domain.extension.service.ExtensionPreferences
 import ca.gosyer.jui.i18n.MR
 import ca.gosyer.jui.uicore.vm.ContextWrapper
 import ca.gosyer.jui.uicore.vm.ViewModel
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentSetOf
+import kotlinx.collections.immutable.toImmutableList
+import kotlinx.collections.immutable.toImmutableSet
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filterNotNull
-import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import me.tatarka.inject.annotations.Inject
+import okio.FileSystem
+import okio.Source
 import org.lighthousegames.logging.logging
+import kotlin.random.Random
 
-class ExtensionsScreenViewModel @Inject constructor(
-    private val extensionHandler: ExtensionInteractionHandler,
-    extensionPreferences: ExtensionPreferences,
-    contextWrapper: ContextWrapper
-) : ViewModel(contextWrapper) {
-    private val extensionList = MutableStateFlow<List<Extension>?>(null)
+class ExtensionsScreenViewModel
+    @Inject
+    constructor(
+        private val getExtensionList: GetExtensionList,
+        private val installExtensionFile: InstallExtensionFile,
+        private val installExtension: InstallExtension,
+        private val updateExtension: UpdateExtension,
+        private val uninstallExtension: UninstallExtension,
+        extensionPreferences: ExtensionPreferences,
+        contextWrapper: ContextWrapper,
+    ) : ViewModel(contextWrapper) {
+        private val extensionList = MutableStateFlow<List<Extension>?>(null)
 
-    private val _enabledLangs = extensionPreferences.languages().asStateFlow()
-    val enabledLangs = _enabledLangs.asStateFlow()
+        private val _enabledLangs = extensionPreferences.languages().asStateFlow()
+        val enabledLangs = _enabledLangs.map { it.toImmutableSet() }
+            .stateIn(scope, SharingStarted.Eagerly, persistentSetOf())
 
-    private val _searchQuery = MutableStateFlow<String?>(null)
-    val searchQuery = _searchQuery.asStateFlow()
+        private val _searchQuery = MutableStateFlow<String?>(null)
+        val searchQuery = _searchQuery.asStateFlow()
 
-    val extensions = combine(
-        searchQuery,
-        extensionList,
-        enabledLangs
-    ) { searchQuery, extensions, enabledLangs ->
-        search(searchQuery, extensions, enabledLangs)
-    }.stateIn(scope, SharingStarted.Eagerly, emptyMap())
+        private val workingExtensions = MutableStateFlow<List<String>>(emptyList())
 
-    val availableLangs = extensionList.filterNotNull().map { langs ->
-        langs.map { it.lang }.distinct()
-    }.stateIn(scope, SharingStarted.Eagerly, emptyList())
+        val extensions = combine(
+            searchQuery,
+            extensionList,
+            enabledLangs,
+            workingExtensions,
+        ) { searchQuery, extensions, enabledLangs, workingExtensions ->
+            search(searchQuery, extensions, enabledLangs, workingExtensions)
+        }.stateIn(scope, SharingStarted.Eagerly, persistentListOf())
 
-    private val _isLoading = MutableStateFlow(true)
-    val isLoading = _isLoading.asStateFlow()
+        val availableLangs = extensionList.filterNotNull().map { langs ->
+            langs.map { it.lang }.distinct().toImmutableList()
+        }.stateIn(scope, SharingStarted.Eagerly, persistentListOf())
 
-    init {
-        getExtensions()
-    }
+        val isLoading = extensionList.map { it == null }.stateIn(scope, SharingStarted.Eagerly, true)
 
-    private fun getExtensions() {
-        extensionHandler.getExtensionList()
-            .onEach {
-                extensionList.value = it
-                _isLoading.value = false
-            }
-            .catch {
-                log.warn(it) { "Error getting extensions" }
-                emit(emptyList())
-                _isLoading.value = false
-            }
-            .launchIn(scope)
-    }
-
-    fun install(extension: Extension) {
-        log.info { "Install clicked" }
-        extensionHandler.installExtension(extension)
-            .onEach {
+        init {
+            scope.launch {
                 getExtensions()
             }
-            .catch {
-                log.warn(it) { "Error installing extension ${extension.apkName}" }
-                getExtensions()
-            }
-            .launchIn(scope)
-    }
-
-    fun update(extension: Extension) {
-        log.info { "Update clicked" }
-        extensionHandler.updateExtension(extension)
-            .onEach {
-                getExtensions()
-            }
-            .catch {
-                log.warn(it) { "Error updating extension ${extension.apkName}" }
-                getExtensions()
-            }
-            .launchIn(scope)
-    }
-
-    fun uninstall(extension: Extension) {
-        log.info { "Uninstall clicked" }
-        extensionHandler.uninstallExtension(extension)
-            .onEach {
-                getExtensions()
-            }
-            .catch {
-                log.warn(it) { "Error uninstalling extension ${extension.apkName}" }
-                getExtensions()
-            }
-            .launchIn(scope)
-    }
-
-    fun setEnabledLanguages(langs: Set<String>) {
-        _enabledLangs.value = langs
-    }
-
-    fun setQuery(query: String) {
-        _searchQuery.value = query
-    }
-
-    private fun search(searchQuery: String?, extensionList: List<Extension>?, enabledLangs: Set<String>): Map<String, List<Extension>> {
-        val extensions = extensionList?.filter { it.lang in enabledLangs }
-            .orEmpty()
-        return if (searchQuery.isNullOrBlank()) {
-            extensions.splitSort()
-        } else {
-            val queries = searchQuery.split(" ")
-            val filteredExtensions = extensions.toMutableList()
-            queries.forEach { query ->
-                filteredExtensions.removeAll { !it.name.contains(query, true) }
-            }
-            filteredExtensions.toList().splitSort()
         }
-    }
 
-    private fun List<Extension>.splitSort(): Map<String, List<Extension>> {
-        val comparator = compareBy<Extension>({ it.lang }, { it.pkgName })
-        val obsolete = filter { it.obsolete }.sortedWith(comparator)
-        val updates = filter { it.hasUpdate }.sortedWith(comparator)
-        val installed = filter { it.installed && !it.hasUpdate && !it.obsolete }.sortedWith(comparator)
-        val available = filter { !it.installed }.sortedWith(comparator)
+        private suspend fun getExtensions() {
+            extensionList.value = getExtensionList.await(onError = { toast(it.message.orEmpty()) }).orEmpty()
+        }
 
-        return mapOf(
-            MR.strings.installed.toPlatformString() to (obsolete + updates + installed),
-        ).filterNot { it.value.isEmpty() } + available.groupBy { it.lang }.mapKeys {
-            if (it.key == "all") {
-                MR.strings.all.toPlatformString()
+        fun install(source: Source) {
+            log.info { "Install file clicked" }
+            scope.launch {
+                try {
+                    val file = FileSystem.SYSTEM_TEMPORARY_DIRECTORY
+                        .resolve("tachidesk.${Random.nextLong()}.proto.gz")
+                        .also { file ->
+                            source.saveTo(file)
+                        }
+                    installExtensionFile.await(file, onError = { toast(it.message.orEmpty()) })
+                } catch (e: Exception) {
+                    log.warn(e) { "Error creating apk file" }
+                    // todo toast if error
+                    e.throwIfCancellation()
+                }
+
+                getExtensions()
+            }
+        }
+
+        fun install(extension: Extension) {
+            log.info { "Install clicked" }
+            scope.launch {
+                workingExtensions.update { it + extension.apkName }
+                installExtension.await(extension, onError = { toast(it.message.orEmpty()) })
+                getExtensions()
+                workingExtensions.update { it - extension.apkName }
+            }
+        }
+
+        fun update(extension: Extension) {
+            log.info { "Update clicked" }
+            scope.launch {
+                workingExtensions.update { it + extension.apkName }
+                updateExtension.await(extension, onError = { toast(it.message.orEmpty()) })
+                getExtensions()
+                workingExtensions.update { it - extension.apkName }
+            }
+        }
+
+        fun uninstall(extension: Extension) {
+            log.info { "Uninstall clicked" }
+            scope.launch {
+                workingExtensions.update { it + extension.apkName }
+                uninstallExtension.await(extension, onError = { toast(it.message.orEmpty()) })
+                getExtensions()
+                workingExtensions.update { it - extension.apkName }
+            }
+        }
+
+        fun setEnabledLanguages(langs: Set<String>) {
+            _enabledLangs.value = langs
+        }
+
+        fun setQuery(query: String) {
+            _searchQuery.value = query
+        }
+
+        private fun search(
+            searchQuery: String?,
+            extensionList: List<Extension>?,
+            enabledLangs: Set<String>,
+            workingExtensions: List<String>,
+        ): ImmutableList<ExtensionUI> {
+            val extensions = extensionList?.filter { it.lang in enabledLangs }
+                .orEmpty()
+            return if (searchQuery.isNullOrBlank()) {
+                extensions.splitSort(workingExtensions)
             } else {
-                Locale(it.key).displayName
+                val queries = searchQuery.split(" ")
+                val filteredExtensions = extensions.toMutableList()
+                queries.forEach { query ->
+                    filteredExtensions.removeAll { !it.name.contains(query, true) }
+                }
+                filteredExtensions.toList().splitSort(workingExtensions)
             }
+        }
+
+        private fun List<Extension>.splitSort(workingExtensions: List<String>): ImmutableList<ExtensionUI> {
+            val all = MR.strings.all.toPlatformString()
+            return this
+                .filter(Extension::installed)
+                .sortedWith(
+                    compareBy<Extension> {
+                        when {
+                            it.obsolete -> 1
+                            it.hasUpdate -> 2
+                            else -> 3
+                        }
+                    }
+                        .thenBy(Extension::lang)
+                        .thenBy(String.CASE_INSENSITIVE_ORDER, Extension::name),
+                )
+                .map { ExtensionUI.ExtensionItem(it, it.apkName in workingExtensions) }
+                .let {
+                    if (it.isNotEmpty()) {
+                        listOf(ExtensionUI.Header(MR.strings.installed.toPlatformString())) + it
+                    } else {
+                        it
+                    }
+                }.plus(
+                    filterNot(Extension::installed)
+                        .groupBy(Extension::lang)
+                        .mapKeys { (key) ->
+                            when (key) {
+                                "all" -> all
+                                else -> Locale(key).displayName
+                            }
+                        }
+                        .mapValues {
+                            it.value
+                                .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER, Extension::name))
+                                .map { ExtensionUI.ExtensionItem(it, it.apkName in workingExtensions) }
+                        }
+                        .toList()
+                        .sortedWith(
+                            compareBy<Pair<String, *>> { (key) ->
+                                when (key) {
+                                    all -> 1
+                                    else -> 2
+                                }
+                            }.thenBy(String.CASE_INSENSITIVE_ORDER, Pair<String, *>::first),
+                        )
+                        .flatMap { (key, value) ->
+                            listOf(ExtensionUI.Header(key)) + value
+                        },
+                )
+                .toImmutableList()
+        }
+
+        private companion object {
+            private val log = logging()
         }
     }
 
-    private companion object {
-        private val log = logging()
-    }
+@Immutable
+sealed class ExtensionUI {
+    data class Header(val header: String) : ExtensionUI()
+    data class ExtensionItem(val extension: Extension, val isWorking: Boolean = false) : ExtensionUI()
 }

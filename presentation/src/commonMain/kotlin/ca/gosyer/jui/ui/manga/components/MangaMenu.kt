@@ -33,22 +33,22 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.fastForEach
-import ca.gosyer.jui.data.models.Category
-import ca.gosyer.jui.data.models.Manga
+import ca.gosyer.jui.domain.category.model.Category
+import ca.gosyer.jui.domain.manga.model.Manga
 import ca.gosyer.jui.i18n.MR
 import ca.gosyer.jui.ui.base.dialog.getMaterialDialogProperties
 import ca.gosyer.jui.uicore.components.VerticalScrollbar
 import ca.gosyer.jui.uicore.components.mangaAspectRatio
 import ca.gosyer.jui.uicore.components.rememberScrollbarAdapter
 import ca.gosyer.jui.uicore.components.scrollbarPadding
-import ca.gosyer.jui.uicore.image.KamelImage
+import ca.gosyer.jui.uicore.image.ImageLoaderImage
 import ca.gosyer.jui.uicore.resources.stringResource
 import com.google.accompanist.flowlayout.FlowRow
 import com.vanpra.composematerialdialogs.MaterialDialog
 import com.vanpra.composematerialdialogs.MaterialDialogState
 import com.vanpra.composematerialdialogs.listItemsMultiChoice
 import com.vanpra.composematerialdialogs.title
-import io.kamel.image.lazyPainterResource
+import kotlinx.collections.immutable.ImmutableList
 
 @Composable
 fun MangaItem(manga: Manga) {
@@ -63,7 +63,7 @@ fun MangaItem(manga: Manga) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Cover(
                     manga,
-                    Modifier.heightIn(120.dp, 300.dp)
+                    Modifier.heightIn(120.dp, 300.dp),
                 )
                 Spacer(Modifier.height(16.dp))
                 MangaInfo(manga)
@@ -73,34 +73,41 @@ fun MangaItem(manga: Manga) {
 }
 
 @Composable
-private fun Cover(manga: Manga, modifier: Modifier = Modifier) {
-    KamelImage(
-        resource = lazyPainterResource(manga, filterQuality = FilterQuality.Medium),
+private fun Cover(
+    manga: Manga,
+    modifier: Modifier = Modifier,
+) {
+    ImageLoaderImage(
+        data = manga,
         contentDescription = manga.title,
         modifier = modifier,
         errorModifier = modifier then Modifier
             .aspectRatio(
                 ratio = mangaAspectRatio,
-                matchHeightConstraintsFirst = true
+                matchHeightConstraintsFirst = true,
             ),
+        filterQuality = FilterQuality.Medium,
     )
 }
 
 @Composable
-private fun MangaInfo(manga: Manga, modifier: Modifier = Modifier) {
+private fun MangaInfo(
+    manga: Manga,
+    modifier: Modifier = Modifier,
+) {
     SelectionContainer {
         Column(modifier) {
             Text(
                 text = manga.title,
                 fontSize = 22.sp,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
             )
             Spacer(Modifier.height(4.dp))
             if (!manga.author.isNullOrEmpty()) {
                 Text(
                     text = manga.author!!,
                     fontSize = 18.sp,
-                    fontWeight = FontWeight.SemiBold
+                    fontWeight = FontWeight.SemiBold,
                 )
                 Spacer(Modifier.height(2.dp))
             }
@@ -108,7 +115,7 @@ private fun MangaInfo(manga: Manga, modifier: Modifier = Modifier) {
                 Text(
                     text = manga.artist!!,
                     fontSize = 18.sp,
-                    fontWeight = FontWeight.SemiBold
+                    fontWeight = FontWeight.SemiBold,
                 )
                 Spacer(Modifier.height(2.dp))
             }
@@ -116,7 +123,7 @@ private fun MangaInfo(manga: Manga, modifier: Modifier = Modifier) {
             Text(
                 text = stringResource(manga.status.res) + " • " + sourceText,
                 fontSize = 18.sp,
-                fontWeight = FontWeight.SemiBold
+                fontWeight = FontWeight.SemiBold,
             )
             Spacer(Modifier.height(8.dp))
             if (!manga.description.isNullOrEmpty()) {
@@ -140,18 +147,19 @@ private fun Chip(text: String) {
         shape = RoundedCornerShape(50),
         modifier = Modifier.defaultMinSize(minHeight = 32.dp)
             .height(IntrinsicSize.Min),
-        contentColor = MaterialTheme.colors.onSurface.copy(alpha = 0.10F)
+        contentColor = MaterialTheme.colors.onSurface.copy(alpha = 0.10F),
     ) {
         Box(
             modifier = Modifier.padding(start = 8.dp, end = 6.dp)
                 .fillMaxHeight(),
-            contentAlignment = Alignment.Center
+            contentAlignment = Alignment.Center,
         ) {
             Text(
                 text = text,
                 style = MaterialTheme.typography.body2,
                 fontSize = 14.sp,
-                color = MaterialTheme.colors.onSurface.copy(alpha = 0.85F)
+                color = MaterialTheme.colors.onSurface.copy(alpha = 0.85F),
+                maxLines = 1,
             )
         }
     }
@@ -160,9 +168,9 @@ private fun Chip(text: String) {
 @Composable
 fun CategorySelectDialog(
     state: MaterialDialogState,
-    categories: List<Category>,
-    oldCategories: List<Category>,
-    onPositiveClick: (List<Category>, List<Category>) -> Unit
+    categories: ImmutableList<Category>,
+    oldCategories: ImmutableList<Category>,
+    onPositiveClick: (List<Category>, List<Category>) -> Unit,
 ) {
     MaterialDialog(
         state,
@@ -184,14 +192,16 @@ fun CategorySelectDialog(
                 }.toSet(),
                 onCheckedChange = { indexes ->
                     onPositiveClick(indexes.map { categories[it] }, oldCategories)
-                }
+                },
             )
-            VerticalScrollbar(
-                modifier = Modifier.align(Alignment.CenterEnd)
-                    .fillMaxHeight()
-                    .scrollbarPadding(),
-                adapter = rememberScrollbarAdapter(listState)
-            )
+            Box(Modifier.matchParentSize().height(IntrinsicSize.Min)) {
+                VerticalScrollbar(
+                    rememberScrollbarAdapter(listState),
+                    Modifier.align(Alignment.CenterEnd)
+                        .fillMaxHeight()
+                        .scrollbarPadding(),
+                )
+            }
         }
     }
 }

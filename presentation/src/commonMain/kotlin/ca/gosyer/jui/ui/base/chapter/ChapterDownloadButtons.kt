@@ -26,39 +26,42 @@ import androidx.compose.material.icons.rounded.ArrowDownward
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Error
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import ca.gosyer.jui.data.download.model.DownloadChapter
-import ca.gosyer.jui.data.download.model.DownloadState
-import ca.gosyer.jui.data.models.Chapter
-import ca.gosyer.jui.data.models.Manga
-import ca.gosyer.jui.data.server.interactions.ChapterInteractionHandler
+import ca.gosyer.jui.domain.chapter.interactor.DeleteChapterDownload
+import ca.gosyer.jui.domain.chapter.model.Chapter
+import ca.gosyer.jui.domain.download.interactor.StopChapterDownload
+import ca.gosyer.jui.domain.download.model.DownloadChapter
+import ca.gosyer.jui.domain.download.model.DownloadState
+import ca.gosyer.jui.domain.manga.model.Manga
 import ca.gosyer.jui.i18n.MR
 import ca.gosyer.jui.uicore.components.DropdownIconButton
 import ca.gosyer.jui.uicore.components.DropdownMenuItem
 import ca.gosyer.jui.uicore.resources.stringResource
-import io.ktor.client.statement.HttpResponse
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.onEach
 
+@Stable
 data class ChapterDownloadItem(
     val manga: Manga?,
     val chapter: Chapter,
-    private val _downloadState: MutableStateFlow<ChapterDownloadState> = MutableStateFlow(
-        if (chapter.downloaded) {
-            ChapterDownloadState.Downloaded
-        } else {
-            ChapterDownloadState.NotDownloaded
-        }
-    ),
-    private val _downloadChapterFlow: MutableStateFlow<DownloadChapter?> = MutableStateFlow(null)
 ) {
+    private val _isSelected = MutableStateFlow(false)
+    val isSelected = _isSelected.asStateFlow()
+
+    private val _downloadState: MutableStateFlow<ChapterDownloadState> = MutableStateFlow(
+        when (chapter.downloaded) {
+            true -> ChapterDownloadState.Downloaded
+            false -> ChapterDownloadState.NotDownloaded
+        },
+    )
     val downloadState = _downloadState.asStateFlow()
+
+    private val _downloadChapterFlow: MutableStateFlow<DownloadChapter?> = MutableStateFlow(null)
     val downloadChapterFlow = _downloadChapterFlow.asStateFlow()
 
     fun updateFrom(downloadingChapters: List<DownloadChapter>) {
@@ -74,25 +77,29 @@ data class ChapterDownloadItem(
         _downloadChapterFlow.value = downloadingChapter
     }
 
-    fun deleteDownload(chapterHandler: ChapterInteractionHandler): Flow<HttpResponse> {
-        return chapterHandler.deleteChapterDownload(chapter)
-            .onEach {
-                _downloadState.value = ChapterDownloadState.NotDownloaded
-            }
+    suspend fun deleteDownload(deleteChapterDownload: DeleteChapterDownload) {
+        deleteChapterDownload.await(chapter)
+        _downloadState.value = ChapterDownloadState.NotDownloaded
     }
 
-    fun stopDownloading(chapterHandler: ChapterInteractionHandler): Flow<HttpResponse> {
-        return chapterHandler.stopChapterDownload(chapter)
-            .onEach {
-                _downloadState.value = ChapterDownloadState.NotDownloaded
-            }
+    suspend fun stopDownloading(stopChapterDownload: StopChapterDownload) {
+        stopChapterDownload.await(chapter)
+        _downloadState.value = ChapterDownloadState.NotDownloaded
+    }
+
+    fun setNotDownloaded() {
+        _downloadState.value = ChapterDownloadState.NotDownloaded
+    }
+
+    fun isSelected(selectedItems: List<Long>): Boolean {
+        return (chapter.id in selectedItems).also { _isSelected.value = it }
     }
 }
 
 enum class ChapterDownloadState {
     NotDownloaded,
     Downloading,
-    Downloaded
+    Downloaded,
 }
 
 @Composable
@@ -100,7 +107,7 @@ fun ChapterDownloadIcon(
     chapter: ChapterDownloadItem,
     onClickDownload: (Chapter) -> Unit,
     onClickStop: (Chapter) -> Unit,
-    onClickDelete: (Chapter) -> Unit
+    onClickDelete: (Chapter) -> Unit,
 ) {
     val downloadChapter by chapter.downloadChapterFlow.collectAsState()
     val downloadState by chapter.downloadState.collectAsState()
@@ -109,13 +116,13 @@ fun ChapterDownloadIcon(
         ChapterDownloadState.Downloaded -> {
             DownloadedIconButton(
                 chapter.chapter.mangaId to chapter.chapter.index,
-                onClick = { onClickDelete(chapter.chapter) }
+                onClick = { onClickDelete(chapter.chapter) },
             )
         }
         ChapterDownloadState.Downloading -> {
             DownloadingIconButton(
                 downloadChapter,
-                onClick = { onClickStop(chapter.chapter) }
+                onClick = { onClickStop(chapter.chapter) },
             )
         }
         ChapterDownloadState.NotDownloaded -> {
@@ -128,7 +135,7 @@ fun ChapterDownloadIcon(
 private fun DownloadIconButton(onClick: () -> Unit) {
     IconButton(
         onClick = onClick,
-        modifier = Modifier.fillMaxHeight()
+        modifier = Modifier.fillMaxHeight(),
     ) {
         Surface(
             shape = CircleShape,
@@ -140,21 +147,24 @@ private fun DownloadIconButton(onClick: () -> Unit) {
                 Modifier
                     .size(22.dp)
                     .padding(2.dp),
-                LocalContentColor.current.copy(alpha = ContentAlpha.disabled)
+                LocalContentColor.current.copy(alpha = ContentAlpha.disabled),
             )
         }
     }
 }
 
 @Composable
-private fun DownloadingIconButton(downloadChapter: DownloadChapter?, onClick: () -> Unit) {
+private fun DownloadingIconButton(
+    downloadChapter: DownloadChapter?,
+    onClick: () -> Unit,
+) {
     DropdownIconButton(
         downloadChapter?.mangaId to downloadChapter?.chapterIndex,
         {
             DropdownMenuItem(onClick = onClick) {
                 Text(stringResource(MR.strings.action_cancel))
             }
-        }
+        },
     ) {
         when (downloadChapter?.state) {
             null, DownloadState.Queued -> CircularProgressIndicator(
@@ -162,12 +172,12 @@ private fun DownloadingIconButton(downloadChapter: DownloadChapter?, onClick: ()
                     .size(26.dp)
                     .padding(2.dp),
                 LocalContentColor.current.copy(alpha = ContentAlpha.disabled),
-                2.dp
+                2.dp,
             )
             DownloadState.Downloading -> if (downloadChapter.progress != 0.0F) {
                 val animatedProgress by animateFloatAsState(
                     targetValue = downloadChapter.progress,
-                    animationSpec = ProgressIndicatorDefaults.ProgressAnimationSpec
+                    animationSpec = ProgressIndicatorDefaults.ProgressAnimationSpec,
                 )
                 CircularProgressIndicator(
                     animatedProgress,
@@ -175,7 +185,7 @@ private fun DownloadingIconButton(downloadChapter: DownloadChapter?, onClick: ()
                         .size(26.dp)
                         .padding(2.dp),
                     LocalContentColor.current.copy(alpha = ContentAlpha.disabled),
-                    2.dp
+                    2.dp,
                 )
                 Icon(
                     Icons.Rounded.ArrowDownward,
@@ -183,7 +193,7 @@ private fun DownloadingIconButton(downloadChapter: DownloadChapter?, onClick: ()
                     Modifier
                         .size(22.dp)
                         .padding(2.dp),
-                    LocalContentColor.current.copy(alpha = ContentAlpha.disabled)
+                    LocalContentColor.current.copy(alpha = ContentAlpha.disabled),
                 )
             } else {
                 CircularProgressIndicator(
@@ -191,7 +201,7 @@ private fun DownloadingIconButton(downloadChapter: DownloadChapter?, onClick: ()
                         .size(26.dp)
                         .padding(2.dp),
                     LocalContentColor.current.copy(alpha = ContentAlpha.disabled),
-                    2.dp
+                    2.dp,
                 )
             }
             DownloadState.Error -> Surface(shape = CircleShape, color = LocalContentColor.current) {
@@ -201,7 +211,7 @@ private fun DownloadingIconButton(downloadChapter: DownloadChapter?, onClick: ()
                     Modifier
                         .size(22.dp)
                         .padding(2.dp),
-                    Color.Red
+                    Color.Red,
                 )
             }
             DownloadState.Finished -> Surface(shape = CircleShape, color = LocalContentColor.current) {
@@ -211,7 +221,7 @@ private fun DownloadingIconButton(downloadChapter: DownloadChapter?, onClick: ()
                     Modifier
                         .size(22.dp)
                         .padding(2.dp),
-                    MaterialTheme.colors.surface
+                    MaterialTheme.colors.surface,
                 )
             }
         }
@@ -219,14 +229,17 @@ private fun DownloadingIconButton(downloadChapter: DownloadChapter?, onClick: ()
 }
 
 @Composable
-private fun DownloadedIconButton(chapter: Pair<Long, Int?>, onClick: () -> Unit) {
+private fun DownloadedIconButton(
+    chapter: Pair<Long, Int?>,
+    onClick: () -> Unit,
+) {
     DropdownIconButton(
         chapter,
         {
             DropdownMenuItem(onClick = onClick) {
                 Text(stringResource(MR.strings.action_delete))
             }
-        }
+        },
     ) {
         Surface(shape = CircleShape, color = LocalContentColor.current) {
             Icon(
@@ -235,7 +248,7 @@ private fun DownloadedIconButton(chapter: Pair<Long, Int?>, onClick: () -> Unit)
                 Modifier
                     .size(22.dp)
                     .padding(2.dp),
-                MaterialTheme.colors.surface
+                MaterialTheme.colors.surface,
             )
         }
     }

@@ -3,6 +3,11 @@
 
 -keep,allowoptimization class ca.gosyer.** { public protected *; }
 
+# Fix crash with reflection access to methods
+-keepclassmembers class androidx.lifecycle.SavedStateHandleSupport { *; }
+-keepclassmembers class androidx.lifecycle.SavedStateHandlesVM { *; }
+-keepclassmembers class androidx.lifecycle.SavedStateHandlesProvider { *; }
+
 # Kotlin
 # todo optimize more
 -keep class kotlin.reflect.** { *; }
@@ -37,6 +42,7 @@
 -dontwarn com.kitfox.svg.app.ant.SVGToImageAntTask
 -dontwarn nl.adaptivity.xmlutil.StAXWriter
 -keep class com.sun.jna.** { *; }
+-dontwarn org.slf4j.impl.StaticLoggerBinder
 
 # Kotlin Serialization
 -keepattributes *Annotation*, InnerClasses

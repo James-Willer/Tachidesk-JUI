@@ -7,9 +7,15 @@
 package ca.gosyer.jui.ui.settings
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.add
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.Scaffold
@@ -27,9 +33,12 @@ import androidx.compose.ui.Modifier
 import ca.gosyer.jui.i18n.MR
 import ca.gosyer.jui.ui.base.navigation.Toolbar
 import ca.gosyer.jui.ui.base.prefs.PreferenceRow
+import ca.gosyer.jui.ui.main.components.bottomNav
 import ca.gosyer.jui.uicore.components.VerticalScrollbar
 import ca.gosyer.jui.uicore.components.rememberScrollbarAdapter
 import ca.gosyer.jui.uicore.components.scrollbarPadding
+import ca.gosyer.jui.uicore.insets.navigationBars
+import ca.gosyer.jui.uicore.insets.statusBars
 import ca.gosyer.jui.uicore.resources.stringResource
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.core.screen.ScreenKey
@@ -39,7 +48,6 @@ import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 
 class SettingsScreen : Screen {
-
     override val key: ScreenKey = uniqueScreenKey
 
     @Composable
@@ -51,46 +59,59 @@ class SettingsScreen : Screen {
 @Composable
 fun SettingsScreenContent(navigator: Navigator) {
     Scaffold(
+        modifier = Modifier.windowInsetsPadding(
+            WindowInsets.statusBars.add(
+                WindowInsets.navigationBars.only(WindowInsetsSides.Horizontal),
+            ),
+        ),
         topBar = {
             Toolbar(stringResource(MR.strings.location_settings))
-        }
+        },
     ) {
         Box(Modifier.padding(it)) {
             val state = rememberLazyListState()
-            LazyColumn(Modifier.fillMaxSize(), state) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                state = state,
+                contentPadding = WindowInsets.bottomNav.add(
+                    WindowInsets.navigationBars.only(
+                        WindowInsetsSides.Bottom,
+                    ),
+                ).asPaddingValues(),
+            ) {
                 item {
                     PreferenceRow(
                         title = stringResource(MR.strings.settings_general),
                         icon = Icons.Rounded.Tune,
-                        onClick = { navigator push SettingsGeneralScreen() }
+                        onClick = { navigator push SettingsGeneralScreen() },
                     )
                 }
                 item {
                     PreferenceRow(
                         title = stringResource(MR.strings.settings_appearance),
                         icon = Icons.Rounded.Palette,
-                        onClick = { navigator push SettingsAppearanceScreen() }
+                        onClick = { navigator push SettingsAppearanceScreen() },
                     )
                 }
                 item {
                     PreferenceRow(
                         title = stringResource(MR.strings.settings_server),
                         icon = Icons.Rounded.Computer,
-                        onClick = { navigator push SettingsServerScreen() }
+                        onClick = { navigator push SettingsServerScreen() },
                     )
                 }
                 item {
                     PreferenceRow(
                         title = stringResource(MR.strings.settings_library),
                         icon = Icons.Rounded.CollectionsBookmark,
-                        onClick = { navigator push SettingsLibraryScreen() }
+                        onClick = { navigator push SettingsLibraryScreen() },
                     )
                 }
                 item {
                     PreferenceRow(
                         title = stringResource(MR.strings.settings_reader),
                         icon = Icons.Rounded.ChromeReaderMode,
-                        onClick = { navigator push SettingsReaderScreen() }
+                        onClick = { navigator push SettingsReaderScreen() },
                     )
                 }
                 /*item {
@@ -118,7 +139,7 @@ fun SettingsScreenContent(navigator: Navigator) {
                     PreferenceRow(
                         title = stringResource(MR.strings.settings_backup),
                         icon = Icons.Rounded.Backup,
-                        onClick = { navigator push SettingsBackupScreen() }
+                        onClick = { navigator push SettingsBackupScreen() },
                     )
                 }
                 /*item {
@@ -139,7 +160,7 @@ fun SettingsScreenContent(navigator: Navigator) {
                     PreferenceRow(
                         title = stringResource(MR.strings.settings_advanced),
                         icon = Icons.Rounded.Code,
-                        onClick = { navigator push SettingsAdvancedScreen() }
+                        onClick = { navigator push SettingsAdvancedScreen() },
                     )
                 }
             }
@@ -148,6 +169,13 @@ fun SettingsScreenContent(navigator: Navigator) {
                 Modifier.align(Alignment.CenterEnd)
                     .fillMaxHeight()
                     .scrollbarPadding()
+                    .windowInsetsPadding(
+                        WindowInsets.bottomNav.add(
+                            WindowInsets.navigationBars.only(
+                                WindowInsetsSides.Bottom,
+                            ),
+                        ),
+                    ),
             )
         }
     }

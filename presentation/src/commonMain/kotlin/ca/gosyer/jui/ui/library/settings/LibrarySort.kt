@@ -21,31 +21,32 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastForEach
-import ca.gosyer.jui.data.library.model.Sort
+import ca.gosyer.jui.domain.library.model.Sort
 import ca.gosyer.jui.ui.sources.browse.filter.SourceFilterAction
 import ca.gosyer.jui.uicore.resources.stringResource
 
 @Composable
-fun getLibrarySort(vm: LibrarySettingsViewModel): @Composable () -> Unit = remember(vm) {
-    @Composable {
-        LibrarySort(
-            mode = vm.sortMode.collectAsState().value,
-            ascending = vm.sortAscending.collectAsState().value,
-            setMode = {
-                vm.sortMode.value = it
-                vm.sortAscending.value = true
-            },
-            setAscending = { vm.sortAscending.value = it }
-        )
+fun getLibrarySort(vm: LibrarySettingsViewModel): @Composable () -> Unit =
+    remember(vm) {
+        @Composable {
+            LibrarySort(
+                mode = vm.sortMode.collectAsState().value,
+                ascending = vm.sortAscending.collectAsState().value,
+                setMode = {
+                    vm.sortMode.value = it
+                    vm.sortAscending.value = true
+                },
+                setAscending = { vm.sortAscending.value = it },
+            )
+        }
     }
-}
 
 @Composable
 fun LibrarySort(
     mode: Sort,
     ascending: Boolean,
     setMode: (Sort) -> Unit,
-    setAscending: (Boolean) -> Unit
+    setAscending: (Boolean) -> Unit,
 ) {
     Column(Modifier.fillMaxWidth()) {
         Sort.values().asList().fastForEach { sort ->
@@ -66,12 +67,12 @@ fun LibrarySort(
                                 false -> Icons.Rounded.ArrowDownward
                             },
                             contentDescription = stringResource(sort.res),
-                            modifier = Modifier.fillMaxHeight()
+                            modifier = Modifier.fillMaxHeight(),
                         )
                     } else {
                         Box(Modifier.size(24.dp))
                     }
-                }
+                },
             )
         }
     }

@@ -6,12 +6,14 @@
 
 package ca.gosyer.jui.ui.reader.navigation
 
+import androidx.compose.runtime.Immutable
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.unit.IntOffset
-import ca.gosyer.jui.data.reader.model.TappingInvertMode
+import ca.gosyer.jui.domain.reader.model.TappingInvertMode
 import ca.gosyer.jui.ui.reader.model.Navigation
 
+@Immutable
 abstract class ViewerNavigation {
     data class Rect(val xRange: IntRange, val yRange: IntRange) {
         private val right get() = xRange.last
@@ -41,12 +43,12 @@ abstract class ViewerNavigation {
 
     data class Region(
         val rect: Rect,
-        val type: Navigation
+        val type: Navigation,
     ) {
         fun invert(invertMode: TappingInvertMode): Region {
             if (invertMode == TappingInvertMode.NONE) return this
             return this.copy(
-                rect = this.rect.invert(invertMode)
+                rect = this.rect.invert(invertMode),
             )
         }
     }
@@ -55,7 +57,10 @@ abstract class ViewerNavigation {
 
     var invertMode: TappingInvertMode = TappingInvertMode.NONE
 
-    fun getAction(pos: Offset, layoutSize: Size): Navigation {
+    fun getAction(
+        pos: Offset,
+        layoutSize: Size,
+    ): Navigation {
         val realX = pos.x / (layoutSize.width * 0.01F)
         val realY = pos.y / (layoutSize.height * 0.01F)
         val realPos = IntOffset(realX.toInt(), realY.toInt())

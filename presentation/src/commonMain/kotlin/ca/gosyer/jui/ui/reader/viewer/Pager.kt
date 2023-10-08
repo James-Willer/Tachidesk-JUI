@@ -10,18 +10,23 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
-import ca.gosyer.jui.data.reader.model.Direction
+import ca.gosyer.jui.domain.reader.model.Direction
+import ca.gosyer.jui.ui.base.model.StableHolder
 import ca.gosyer.jui.ui.reader.ChapterSeparator
 import ca.gosyer.jui.ui.reader.ReaderImage
 import ca.gosyer.jui.ui.reader.model.MoveTo
 import ca.gosyer.jui.ui.reader.model.PageMove
 import ca.gosyer.jui.ui.reader.model.ReaderChapter
+import ca.gosyer.jui.ui.reader.model.ReaderItem
 import ca.gosyer.jui.ui.reader.model.ReaderPage
-import com.google.accompanist.pager.HorizontalPager
-import com.google.accompanist.pager.VerticalPager
-import com.google.accompanist.pager.rememberPagerState
+import ca.gosyer.jui.ui.reader.model.ReaderPageSeparator
+import ca.gosyer.jui.uicore.pager.HorizontalPager
+import ca.gosyer.jui.uicore.pager.VerticalPager
+import ca.gosyer.jui.uicore.pager.rememberPagerState
+import kotlinx.collections.immutable.ImmutableList
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.mapLatest
@@ -30,37 +35,37 @@ import kotlinx.coroutines.flow.mapLatest
 fun PagerReader(
     parentModifier: Modifier,
     direction: Direction,
-    currentPage: Int,
-    pages: List<ReaderPage>,
-    previousChapter: ReaderChapter?,
-    currentChapter: ReaderChapter,
-    nextChapter: ReaderChapter?,
+    currentPage: ReaderItem?,
+    pages: ImmutableList<ReaderItem>,
     loadingModifier: Modifier,
     pageContentScale: ContentScale,
-    pageEmitter: SharedFlow<PageMove>,
+    pageEmitterHolder: StableHolder<SharedFlow<PageMove>>,
     retry: (ReaderPage) -> Unit,
-    progress: (Int) -> Unit
+    progress: (ReaderItem) -> Unit,
+    requestPreloadChapter: (ReaderChapter) -> Unit,
 ) {
-    val state = rememberPagerState(initialPage = currentPage)
+    val state = rememberPagerState(initialPage = pages.indexOf(currentPage).coerceAtLeast(1))
+    val currentPageState = rememberUpdatedState(currentPage)
 
-    LaunchedEffect(pages.size) {
+    LaunchedEffect(pages.size, state, currentPageState) {
         val pageRange = 0..(pages.size + 1)
-        pageEmitter
+        pageEmitterHolder.item
             .mapLatest { pageMove ->
                 when (pageMove) {
                     is PageMove.Direction -> {
-                        val (moveTo, currentPage) = pageMove
+                        val currentPage = currentPageState.value ?: return@mapLatest
+                        val (moveTo) = pageMove
                         val page = when (moveTo) {
-                            MoveTo.Previous -> currentPage - 1
-                            MoveTo.Next -> currentPage + 1
+                            MoveTo.Previous -> pages.indexOf(currentPage) - 1
+                            MoveTo.Next -> pages.indexOf(currentPage) + 1
                         }
                         if (page in pageRange) {
                             state.animateScrollToPage(page)
                         }
                     }
                     is PageMove.Page -> {
-                        val (pageNumber) = pageMove
-                        if (pageNumber in pageRange) {
+                        val pageNumber = pages.indexOf(pageMove.page)
+                        if (pageNumber > -1) {
                             state.animateScrollToPage(pageNumber)
                         }
                     }
@@ -70,47 +75,58 @@ fun PagerReader(
     }
 
     LaunchedEffect(state.currentPage) {
-        if (state.currentPage != currentPage) {
-            progress(state.currentPage)
+        val page = pages.getOrNull(state.currentPage)
+        if (page != null) {
+            progress(page)
         }
     }
     val modifier = parentModifier then Modifier.fillMaxSize()
-    fun retry(index: Int) { pages.find { it.index == index }?.let { retry(it) } }
+    fun retry(index: Int) { pages.find { it is ReaderPage && it.index == index }?.let { retry(it as ReaderPage) } }
 
-    if (direction == Direction.Down || direction == Direction.Up) {
+    if (direction.isVertical) {
         VerticalPager(
-            count = pages.size + 2,
+            count = pages.size,
             state = state,
             reverseLayout = direction == Direction.Up,
-            modifier = modifier
+            modifier = modifier,
+            key = {
+                when (val page = pages.getOrNull(it)) {
+                    is ReaderPage -> page.chapter.chapter.index to page.index
+                    is ReaderPageSeparator -> page.previousChapter?.chapter?.index to page.nextChapter?.chapter?.index
+                    else -> it
+                }
+            },
         ) {
             HandlePager(
                 pages = pages,
                 page = it,
-                previousChapter = previousChapter,
-                currentChapter = currentChapter,
-                nextChapter = nextChapter,
                 loadingModifier = loadingModifier,
                 pageContentScale = pageContentScale,
-                retry = ::retry
+                retry = ::retry,
+                requestPreloadChapter = requestPreloadChapter,
             )
         }
     } else {
         HorizontalPager(
-            count = pages.size + 2,
+            count = pages.size,
             state = state,
             reverseLayout = direction == Direction.Left,
-            modifier = modifier
+            modifier = modifier,
+            key = {
+                when (val page = pages.getOrNull(it)) {
+                    is ReaderPage -> page.chapter.chapter.index to page.index
+                    is ReaderPageSeparator -> page.previousChapter?.chapter?.index to page.nextChapter?.chapter?.index
+                    else -> it
+                }
+            },
         ) {
             HandlePager(
                 pages = pages,
                 page = it,
-                previousChapter = previousChapter,
-                currentChapter = currentChapter,
-                nextChapter = nextChapter,
                 loadingModifier = loadingModifier,
                 pageContentScale = pageContentScale,
-                retry = ::retry
+                retry = ::retry,
+                requestPreloadChapter = requestPreloadChapter,
             )
         }
     }
@@ -118,30 +134,31 @@ fun PagerReader(
 
 @Composable
 fun HandlePager(
-    pages: List<ReaderPage>,
+    pages: ImmutableList<ReaderItem>,
     page: Int,
-    previousChapter: ReaderChapter?,
-    currentChapter: ReaderChapter,
-    nextChapter: ReaderChapter?,
     loadingModifier: Modifier,
     pageContentScale: ContentScale,
     retry: (Int) -> Unit,
+    requestPreloadChapter: (ReaderChapter) -> Unit,
 ) {
-    when (page) {
-        0 -> ChapterSeparator(previousChapter, currentChapter)
-        pages.size + 1 -> ChapterSeparator(currentChapter, nextChapter)
-        else -> {
-            val image = pages[page - 1]
+    when (val image = pages[page]) {
+        is ReaderPage -> {
             ReaderImage(
                 imageIndex = image.index,
-                drawable = image.bitmap.collectAsState().value,
+                drawableHolder = image.bitmap.collectAsState().value,
+                bitmapInfo = image.bitmapInfo.collectAsState().value,
                 progress = image.progress.collectAsState().value,
                 status = image.status.collectAsState().value,
                 error = image.error.collectAsState().value,
                 loadingModifier = loadingModifier,
                 retry = retry,
-                contentScale = pageContentScale
+                contentScale = pageContentScale,
             )
         }
+        is ReaderPageSeparator -> ChapterSeparator(
+            previousChapter = image.previousChapter,
+            nextChapter = image.nextChapter,
+            requestPreloadChapter = requestPreloadChapter,
+        )
     }
 }

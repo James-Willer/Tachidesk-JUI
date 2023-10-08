@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.material.MenuDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
@@ -22,6 +23,7 @@ import androidx.compose.ui.unit.dp
 /**
  * Policy on setting [WindowManager.LayoutParams.FLAG_SECURE] on a window.
  */
+@Stable
 enum class SecureFlagPolicy {
     /**
      * Inherit [WindowManager.LayoutParams.FLAG_SECURE] from the parent window and pass it on the
@@ -39,21 +41,22 @@ enum class SecureFlagPolicy {
      * No [WindowManager.LayoutParams.FLAG_SECURE] will be set on the window that is using this
      * policy.
      */
-    SecureOff
+    SecureOff,
 }
 
 @Immutable
-data class PopupProperties @ExperimentalComposeUiApi constructor(
-    val focusable: Boolean = false,
-    val dismissOnBackPress: Boolean = true,
-    val dismissOnClickOutside: Boolean = true,
-    val securePolicy: SecureFlagPolicy = SecureFlagPolicy.Inherit,
-    val excludeFromSystemGesture: Boolean = true,
-    val clippingEnabled: Boolean = true,
-    @Suppress("EXPERIMENTAL_ANNOTATION_ON_WRONG_TARGET")
-    @get:ExperimentalComposeUiApi
-    val usePlatformDefaultWidth: Boolean = false
-)
+data class PopupProperties
+    @ExperimentalComposeUiApi
+    constructor(
+        val focusable: Boolean = false,
+        val dismissOnBackPress: Boolean = true,
+        val dismissOnClickOutside: Boolean = true,
+        val securePolicy: SecureFlagPolicy = SecureFlagPolicy.Inherit,
+        val excludeFromSystemGesture: Boolean = true,
+        val clippingEnabled: Boolean = true,
+        @property:ExperimentalComposeUiApi
+        val usePlatformDefaultWidth: Boolean = false,
+    )
 
 @Composable
 internal expect fun RealDropdownMenu(
@@ -62,7 +65,7 @@ internal expect fun RealDropdownMenu(
     modifier: Modifier,
     offset: DpOffset,
     properties: PopupProperties,
-    content: @Composable ColumnScope.() -> Unit
+    content: @Composable ColumnScope.() -> Unit,
 )
 
 @Composable
@@ -72,17 +75,17 @@ fun DropdownMenu(
     modifier: Modifier = Modifier,
     offset: DpOffset = DpOffset(0.dp, 0.dp),
     properties: PopupProperties = PopupProperties(focusable = true),
-    content: @Composable ColumnScope.() -> Unit
+    content: @Composable ColumnScope.() -> Unit,
 ) = RealDropdownMenu(expanded, onDismissRequest, modifier, offset, properties, content)
 
 @Composable
 internal expect fun RealDropdownMenuItem(
     onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    enabled: Boolean = true,
+    modifier: Modifier,
+    enabled: Boolean,
     contentPadding: PaddingValues,
     interactionSource: MutableInteractionSource,
-    content: @Composable RowScope.() -> Unit
+    content: @Composable RowScope.() -> Unit,
 )
 
 @Composable
@@ -92,5 +95,5 @@ fun DropdownMenuItem(
     enabled: Boolean = true,
     contentPadding: PaddingValues = MenuDefaults.DropdownMenuItemContentPadding,
     interactionSource: MutableInteractionSource = remember { MutableInteractionSource() },
-    content: @Composable RowScope.() -> Unit
+    content: @Composable RowScope.() -> Unit,
 ) = RealDropdownMenuItem(onClick, modifier, enabled, contentPadding, interactionSource, content)

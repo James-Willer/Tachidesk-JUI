@@ -25,7 +25,7 @@ import com.vanpra.composematerialdialogs.title
 fun RenameDialog(
     state: MaterialDialogState,
     category: CategoriesScreenViewModel.MenuCategory,
-    onRename: (String) -> Unit
+    onRename: (String) -> Unit,
 ) {
     MaterialDialog(
         state,
@@ -43,7 +43,7 @@ fun RenameDialog(
             onInput = { onRename(it) },
             maxLines = 1,
             singleLine = true,
-            modifier = Modifier.keyboardHandler(true, enterAction = { it.moveFocus(FocusDirection.Next) })
+            modifier = Modifier.keyboardHandler(true, enterAction = { it.moveFocus(FocusDirection.Next) }),
         )
     }
 }
@@ -52,7 +52,7 @@ fun RenameDialog(
 fun DeleteDialog(
     state: MaterialDialogState,
     category: CategoriesScreenViewModel.MenuCategory,
-    onDelete: (CategoriesScreenViewModel.MenuCategory) -> Unit
+    onDelete: (CategoriesScreenViewModel.MenuCategory) -> Unit,
 ) {
     MaterialDialog(
         state,
@@ -72,7 +72,7 @@ fun DeleteDialog(
 @Composable
 fun CreateDialog(
     state: MaterialDialogState,
-    onCreate: (String) -> Unit
+    onCreate: (String) -> Unit,
 ) {
     MaterialDialog(
         state,
@@ -89,7 +89,7 @@ fun CreateDialog(
             onInput = { onCreate(it) },
             maxLines = 1,
             singleLine = true,
-            modifier = Modifier.keyboardHandler(true, enterAction = { it.moveFocus(FocusDirection.Next) })
+            modifier = Modifier.keyboardHandler(true, enterAction = { it.moveFocus(FocusDirection.Next) }),
         )
     }
 }

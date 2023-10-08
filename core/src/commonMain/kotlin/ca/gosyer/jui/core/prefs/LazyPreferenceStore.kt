@@ -14,48 +14,65 @@ import kotlinx.serialization.modules.SerializersModule
  * providing preference instances to classes that may not use them at all.
  */
 class LazyPreferenceStore(
-    private val lazyStore: Lazy<PreferenceStore>
+    private val lazyStore: Lazy<PreferenceStore>,
 ) : PreferenceStore {
-
     /**
      * Returns an [String] preference for this [key].
      */
-    override fun getString(key: String, defaultValue: String): Preference<String> {
+    override fun getString(
+        key: String,
+        defaultValue: String,
+    ): Preference<String> {
         return lazyStore.value.getString(key, defaultValue)
     }
 
     /**
      * Returns a [Long] preference for this [key].
      */
-    override fun getLong(key: String, defaultValue: Long): Preference<Long> {
+    override fun getLong(
+        key: String,
+        defaultValue: Long,
+    ): Preference<Long> {
         return lazyStore.value.getLong(key, defaultValue)
     }
 
     /**
      * Returns an [Int] preference for this [key].
      */
-    override fun getInt(key: String, defaultValue: Int): Preference<Int> {
+    override fun getInt(
+        key: String,
+        defaultValue: Int,
+    ): Preference<Int> {
         return lazyStore.value.getInt(key, defaultValue)
     }
 
     /**
      * Returns a [Float] preference for this [key].
      */
-    override fun getFloat(key: String, defaultValue: Float): Preference<Float> {
+    override fun getFloat(
+        key: String,
+        defaultValue: Float,
+    ): Preference<Float> {
         return lazyStore.value.getFloat(key, defaultValue)
     }
 
     /**
      * Returns a [Boolean] preference for this [key].
      */
-    override fun getBoolean(key: String, defaultValue: Boolean): Preference<Boolean> {
+    override fun getBoolean(
+        key: String,
+        defaultValue: Boolean,
+    ): Preference<Boolean> {
         return lazyStore.value.getBoolean(key, defaultValue)
     }
 
     /**
      * Returns a [Set<String>] preference for this [key].
      */
-    override fun getStringSet(key: String, defaultValue: Set<String>): Preference<Set<String>> {
+    override fun getStringSet(
+        key: String,
+        defaultValue: Set<String>,
+    ): Preference<Set<String>> {
         return lazyStore.value.getStringSet(key, defaultValue)
     }
 
@@ -67,7 +84,7 @@ class LazyPreferenceStore(
         key: String,
         defaultValue: T,
         serializer: (T) -> String,
-        deserializer: (String) -> T
+        deserializer: (String) -> T,
     ): Preference<T> {
         return lazyStore.value.getObject(key, defaultValue, serializer, deserializer)
     }
@@ -76,7 +93,7 @@ class LazyPreferenceStore(
         key: String,
         defaultValue: T,
         serializer: KSerializer<T>,
-        serializersModule: SerializersModule
+        serializersModule: SerializersModule,
     ): Preference<T> {
         return lazyStore.value.getJsonObject(key, defaultValue, serializer)
     }

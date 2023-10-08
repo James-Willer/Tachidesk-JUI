@@ -5,7 +5,6 @@ import org.gradle.jvm.tasks.Jar
 import org.jetbrains.compose.compose
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
-import proguard.gradle.ProGuardTask
 
 @Suppress("DSL_SCOPE_VIOLATION")
 plugins {
@@ -20,6 +19,7 @@ plugins {
 dependencies {
     implementation(projects.core)
     implementation(projects.i18n)
+    implementation(projects.domain)
     implementation(projects.data)
     implementation(projects.uiCore)
     implementation(projects.presentation)
@@ -35,7 +35,8 @@ dependencies {
     implementation(libs.accompanist.pager)
     implementation(libs.accompanist.pagerIndicators)
     implementation(libs.accompanist.flowLayout)
-    implementation(libs.kamel)
+    implementation(libs.imageloader.core)
+    implementation(libs.imageloader.moko)
     implementation(libs.materialDialogs.core)
 
     // UI (Swing)
@@ -46,7 +47,8 @@ dependencies {
     implementation(libs.coroutines.swing)
 
     // Json
-    implementation(libs.serialization.json)
+    implementation(libs.serialization.json.core)
+    implementation(libs.serialization.json.okio)
 
     // Dependency Injection
     implementation(libs.kotlinInject.runtime)
@@ -60,6 +62,10 @@ dependencies {
     implementation(libs.ktor.logging)
     implementation(libs.ktor.websockets)
     implementation(libs.ktor.auth)
+
+    // Ktorfit
+    implementation(libs.ktorfit.lib)
+    ksp(libs.ktorfit.ksp)
 
     // Logging
     implementation(libs.logging.slf4j.api)
@@ -79,8 +85,9 @@ dependencies {
     implementation(libs.multiplatformSettings.coroutines)
 
     // Utility
-    implementation(libs.krokiCoroutines)
     implementation(libs.dateTime)
+    implementation(libs.immutableCollections)
+    implementation(libs.kds)
 
     // Localization
     implementation(libs.moko.core)
@@ -102,8 +109,7 @@ tasks {
         kotlinOptions {
             jvmTarget = Config.desktopJvmTarget.toString()
             freeCompilerArgs = listOf(
-                "-Xopt-in=kotlin.RequiresOptIn",
-                "-Xopt-in=androidx.compose.ui.ExperimentalComposeUiApi"
+                "-opt-in=androidx.compose.ui.ExperimentalComposeUiApi"
             )
         }
     }
@@ -117,22 +123,8 @@ tasks {
 
     registerTachideskTasks(project)
 
-    register<ProGuardTask>("optimizeUberJar") {
-        group = "compose desktop"
-        val packageUberJarForCurrentOS = getByName("packageUberJarForCurrentOS")
-        dependsOn(packageUberJarForCurrentOS)
-        val uberJar = packageUberJarForCurrentOS.outputs.files.first()
-        injars(uberJar)
-        outjars(File(uberJar.parentFile, "min/" + uberJar.name))
-        val javaHome = System.getProperty("java.home")
-        if (JavaVersion.current().isJava9Compatible) {
-            libraryjars("$javaHome/jmods")
-        } else {
-            libraryjars("$javaHome/lib/rt.jar")
-            libraryjars("$javaHome/lib/jce.jar")
-        }
-        configuration("proguard-rules.pro")
-    }
+    getByName("formatKotlinMain").dependsOn("kspKotlin")
+    getByName("formatKotlinTest").dependsOn("kspTestKotlin")
 }
 
 kotlin {
@@ -143,6 +135,11 @@ kotlin {
         kotlin.srcDir("build/generated/ksp/test/kotlin")
     }
 }
+
+val isPreview: Boolean
+    get() = project.hasProperty("preview")
+val previewCode: String
+    get() = project.properties["preview"]?.toString()?.trim('"') ?: 0.toString()
 
 compose.desktop {
     application {
@@ -159,6 +156,7 @@ compose.desktop {
                 TargetFormat.Dmg
             )
             modules(
+                "java.base",
                 "java.compiler",
                 "java.instrument",
                 "java.management",
@@ -171,13 +169,31 @@ compose.desktop {
                 "jdk.unsupported"
             )
 
-            packageName = "Tachidesk-JUI"
+            packageName = if (!isPreview) {
+                "Tachidesk-JUI"
+            } else {
+                "Tachidesk-JUI Preview"
+            }
             description = "Tachidesk-JUI is a Jvm client for a Tachidesk Server"
             copyright = "Mozilla Public License v2.0"
             vendor = "Suwayomi"
+            if (isPreview) {
+                packageVersion = "${version.toString().substringBeforeLast('.')}.$previewCode"
+            }
+
+            args(project.projectDir.absolutePath)
+            buildTypes.release.proguard {
+                version.set(libs.versions.proguard.get())
+                configurationFiles.from("proguard-rules.pro")
+            }
+
             windows {
                 dirChooser = true
-                upgradeUuid = "B2ED947E-81E4-4258-8388-2B1EDF5E0A30"
+                upgradeUuid = if (!isPreview) {
+                    "B2ED947E-81E4-4258-8388-2B1EDF5E0A30"
+                } else {
+                    "7869504A-DB4D-45E8-AC6C-60C0360EA2F0"
+                }
                 shortcut = true
                 menu = true
                 iconFile.set(rootProject.file("resources/icon.ico"))
@@ -205,8 +221,8 @@ buildConfig {
     buildConfigField("String", "VERSION", project.version.toString().wrap())
     buildConfigField("int", "MIGRATION_CODE", migrationCode.toString())
     buildConfigField("boolean", "DEBUG", project.hasProperty("debugApp").toString())
-    buildConfigField("boolean", "IS_PREVIEW", project.hasProperty("preview").toString())
-    buildConfigField("int", "PREVIEW_BUILD", project.properties["preview"]?.toString()?.trim('"') ?: 0.toString())
+    buildConfigField("boolean", "IS_PREVIEW", isPreview.toString())
+    buildConfigField("int", "PREVIEW_BUILD", previewCode)
 
     // Tachidesk
     buildConfigField("String", "TACHIDESK_SP_VERSION", tachideskVersion.wrap())

@@ -5,12 +5,12 @@ plugins {
 
 repositories {
     mavenCentral()
-    maven { url = uri("https://plugins.gradle.org/m2/") }
+    maven("https://plugins.gradle.org/m2/")
 }
 
 dependencies {
     implementation(gradleKotlinDsl())
     implementation(gradleApi())
     implementation(localGroovy())
-    implementation("de.undercouch:gradle-download-task:4.1.2")
+    implementation("de.undercouch:gradle-download-task:5.3.0")
 }

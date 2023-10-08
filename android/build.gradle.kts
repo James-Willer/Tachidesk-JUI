@@ -13,6 +13,7 @@ plugins {
 dependencies {
     implementation(projects.core)
     implementation(projects.i18n)
+    implementation(projects.domain)
     implementation(projects.data)
     implementation(projects.uiCore)
     implementation(projects.presentation)
@@ -22,10 +23,13 @@ dependencies {
     implementation(libs.voyager.core)
     implementation(libs.voyager.navigation)
     implementation(libs.voyager.transitions)
+    implementation(libs.voyager.androidx)
     implementation(libs.accompanist.pager)
     implementation(libs.accompanist.pagerIndicators)
     implementation(libs.accompanist.flowLayout)
-    implementation(libs.kamel)
+    implementation(libs.accompanist.systemUIController)
+    implementation(libs.imageloader.core)
+    implementation(libs.imageloader.moko)
     implementation(libs.materialDialogs.core)
 
     // Android
@@ -44,7 +48,8 @@ dependencies {
     implementation(libs.coroutines.android)
 
     // Json
-    implementation(libs.serialization.json)
+    implementation(libs.serialization.json.core)
+    implementation(libs.serialization.json.okio)
 
     // Dependency Injection
     implementation(libs.kotlinInject.runtime)
@@ -59,6 +64,10 @@ dependencies {
     implementation(libs.ktor.websockets)
     implementation(libs.ktor.auth)
 
+    // Ktorfit
+    implementation(libs.ktorfit.lib)
+    ksp(libs.ktorfit.ksp)
+
     // Logging
     implementation(libs.logging.kmlogging)
 
@@ -71,8 +80,9 @@ dependencies {
     implementation(libs.multiplatformSettings.coroutines)
 
     // Utility
-    implementation(libs.krokiCoroutines)
     implementation(libs.dateTime)
+    implementation(libs.immutableCollections)
+    implementation(libs.kds)
 
     // Localization
     implementation(libs.moko.core)
@@ -85,6 +95,7 @@ dependencies {
 }
 
 android {
+    namespace = "ca.gosyer.jui.android"
     defaultConfig {
         applicationId = "ca.gosyer.jui.android"
         versionCode = migrationCode
@@ -102,5 +113,30 @@ android {
             isShrinkResources = true
             setProguardFiles(listOf(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"))
         }
+    }
+
+    buildFeatures {
+        buildConfig = true
+    }
+
+    packaging {
+        resources.excludes.addAll(listOf(
+            "META-INF/DEPENDENCIES",
+            "LICENSE.txt",
+            "META-INF/LICENSE",
+            "META-INF/LICENSE.txt",
+            "META-INF/LICENSE.md",
+            "META-INF/LICENSE-notice.md",
+            "META-INF/README.md",
+            "META-INF/NOTICE",
+            "META-INF/*.kotlin_module",
+            "META-INF/*.version",
+        ))
+    }
+}
+
+kotlin {
+    jvmToolchain {
+        languageVersion.set(JavaLanguageVersion.of(Config.androidJvmTarget.majorVersion))
     }
 }

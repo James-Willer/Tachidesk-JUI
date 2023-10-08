@@ -8,7 +8,7 @@ package ca.gosyer.jui.ui.base.theme
 
 import androidx.compose.ui.graphics.Color
 import ca.gosyer.jui.core.prefs.Preference
-import ca.gosyer.jui.data.ui.UiPreferences
+import ca.gosyer.jui.domain.ui.service.UiPreferences
 import ca.gosyer.jui.uicore.prefs.PreferenceMutableStateFlow
 import ca.gosyer.jui.uicore.prefs.asColor
 import ca.gosyer.jui.uicore.prefs.asStateIn
@@ -16,31 +16,36 @@ import kotlinx.coroutines.CoroutineScope
 
 data class AppColorsPreference(
     val primary: Preference<Color>,
-    val secondary: Preference<Color>
+    val secondary: Preference<Color>,
+    val tertiary: Preference<Color>,
 )
 
 class AppColorsPreferenceState(
     val primaryStateFlow: PreferenceMutableStateFlow<Color>,
-    val secondaryStateFlow: PreferenceMutableStateFlow<Color>
+    val secondaryStateFlow: PreferenceMutableStateFlow<Color>,
+    val tertiaryStateFlow: PreferenceMutableStateFlow<Color>,
 )
 
 fun UiPreferences.getLightColors(): AppColorsPreference {
     return AppColorsPreference(
         colorPrimaryLight().asColor(),
-        colorSecondaryLight().asColor()
+        colorSecondaryLight().asColor(),
+        colorTertiaryLight().asColor(),
     )
 }
 
 fun UiPreferences.getDarkColors(): AppColorsPreference {
     return AppColorsPreference(
         colorPrimaryDark().asColor(),
-        colorSecondaryDark().asColor()
+        colorSecondaryDark().asColor(),
+        colorTertiaryDark().asColor(),
     )
 }
 
 fun AppColorsPreference.asStateFlow(scope: CoroutineScope): AppColorsPreferenceState {
     return AppColorsPreferenceState(
         primary.asStateIn(scope),
-        secondary.asStateIn(scope)
+        secondary.asStateIn(scope),
+        tertiary.asStateIn(scope),
     )
 }

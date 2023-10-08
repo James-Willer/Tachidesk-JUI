@@ -18,10 +18,9 @@ import ca.gosyer.jui.android.AppComponent
 import ca.gosyer.jui.android.data.notification.Notifications
 import ca.gosyer.jui.android.util.notificationBuilder
 import ca.gosyer.jui.android.util.notificationManager
-import ca.gosyer.jui.data.update.UpdateChecker.Update
+import ca.gosyer.jui.domain.updates.interactor.UpdateChecker.Update
 import ca.gosyer.jui.i18n.MR
 import dev.icerock.moko.resources.desc.desc
-import kotlinx.coroutines.flow.singleOrNull
 import java.util.concurrent.TimeUnit
 
 class UpdateCheckWorker(private val context: Context, workerParams: WorkerParameters) : CoroutineWorker(context, workerParams) {
@@ -30,10 +29,10 @@ class UpdateCheckWorker(private val context: Context, workerParams: WorkerParame
             val update = AppComponent.getInstance(context.applicationContext)
                 .let {
                     if (it.updatePreferences.enabled().get()) {
-                        it.updateChecker
-                            .checkForUpdates()
-                            .singleOrNull()
-                    } else null
+                        it.updateChecker.await(false)
+                    } else {
+                        null
+                    }
                 }
 
             if (update is Update.UpdateFound) {
@@ -63,13 +62,13 @@ class UpdateCheckWorker(private val context: Context, workerParams: WorkerParame
                 7,
                 TimeUnit.DAYS,
                 3,
-                TimeUnit.HOURS
+                TimeUnit.HOURS,
             )
                 .addTag(TAG)
                 .setConstraints(constraints)
                 .build()
 
-            WorkManager.getInstance(context).enqueueUniquePeriodicWork(TAG, ExistingPeriodicWorkPolicy.REPLACE, request)
+            WorkManager.getInstance(context).enqueueUniquePeriodicWork(TAG, ExistingPeriodicWorkPolicy.UPDATE, request)
         }
 
         fun cancelTask(context: Context) {

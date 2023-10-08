@@ -14,13 +14,23 @@ import ca.gosyer.jui.i18n.MR
 import dev.icerock.moko.resources.desc.desc
 
 object Notifications {
-
     /**
      * Notification channel and ids used by the downloader.
      */
     private const val GROUP_DOWNLOADER = "group_downloader"
-    const val CHANNEL_DOWNLOADER = "downloader_channel"
-    const val ID_DOWNLOAD_CHAPTER = -101
+    const val CHANNEL_DOWNLOADER_RUNNING = "downloader_channel"
+    const val ID_DOWNLOADER_RUNNING = -101
+    const val CHANNEL_DOWNLOADER_DOWNLOADING = "downloader_channel_downloading"
+    const val ID_DOWNLOADER_DOWNLOADING = -102
+
+    /**
+     * Notification channel and ids used by the library updates.
+     */
+    private const val GROUP_LIBRARY = "group_library"
+    const val CHANNEL_LIBRARY_UPDATES = "library_updates_channel"
+    const val ID_LIBRARY_UPDATES = -301
+    const val CHANNEL_LIBRARY_PROGRESS = "library_progress_channel"
+    const val ID_LIBRARY_PROGRESS = -302
 
     /**
      * Notification channel and ids used for app updates.
@@ -39,37 +49,64 @@ object Notifications {
                 buildNotificationChannelGroup(GROUP_DOWNLOADER) {
                     setName(MR.strings.group_downloader.desc().toString(context))
                 },
+                buildNotificationChannelGroup(GROUP_LIBRARY) {
+                    setName(MR.strings.group_library.desc().toString(context))
+                },
                 buildNotificationChannelGroup(GROUP_APK_UPDATES) {
                     setName(MR.strings.group_updates.desc().toString(context))
                 },
-            )
+            ),
         )
 
         notificationService.createNotificationChannelsCompat(
             listOf(
                 buildNotificationChannel(
-                    CHANNEL_DOWNLOADER,
-                    NotificationManagerCompat.IMPORTANCE_LOW
+                    CHANNEL_DOWNLOADER_RUNNING,
+                    NotificationManagerCompat.IMPORTANCE_LOW,
                 ) {
-                    setName(MR.strings.group_downloader_channel.desc().toString(context))
+                    setName(MR.strings.channel_active.desc().toString(context))
                     setGroup(GROUP_DOWNLOADER)
                     setShowBadge(false)
                 },
                 buildNotificationChannel(
+                    CHANNEL_DOWNLOADER_DOWNLOADING,
+                    NotificationManagerCompat.IMPORTANCE_LOW,
+                ) {
+                    setName(MR.strings.channel_progress.desc().toString(context))
+                    setGroup(GROUP_DOWNLOADER)
+                    setShowBadge(false)
+                },
+                buildNotificationChannel(
+                    CHANNEL_LIBRARY_UPDATES,
+                    NotificationManagerCompat.IMPORTANCE_LOW,
+                ) {
+                    setName(MR.strings.channel_active.desc().toString(context))
+                    setGroup(GROUP_LIBRARY)
+                    setShowBadge(false)
+                },
+                buildNotificationChannel(
+                    CHANNEL_LIBRARY_PROGRESS,
+                    NotificationManagerCompat.IMPORTANCE_LOW,
+                ) {
+                    setName(MR.strings.channel_progress.desc().toString(context))
+                    setGroup(GROUP_LIBRARY)
+                    setShowBadge(false)
+                },
+                buildNotificationChannel(
                     CHANNEL_APP_UPDATE,
-                    NotificationManagerCompat.IMPORTANCE_DEFAULT
+                    NotificationManagerCompat.IMPORTANCE_DEFAULT,
                 ) {
                     setGroup(GROUP_APK_UPDATES)
                     setName(MR.strings.group_updates_channel_app.desc().toString(context))
                 },
                 buildNotificationChannel(
                     CHANNEL_EXTENSIONS_UPDATE,
-                    NotificationManagerCompat.IMPORTANCE_DEFAULT
+                    NotificationManagerCompat.IMPORTANCE_DEFAULT,
                 ) {
                     setGroup(GROUP_APK_UPDATES)
                     setName(MR.strings.group_updates_channel_ext.desc().toString(context))
-                }
-            )
+                },
+            ),
         )
     }
 }

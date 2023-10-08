@@ -4,6 +4,8 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
+@file:Suppress("DEPRECATION")
+
 package ca.gosyer.jui.ui.library.settings
 
 import androidx.compose.foundation.layout.Box
@@ -11,6 +13,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.Tab
@@ -27,23 +31,23 @@ import ca.gosyer.jui.uicore.components.VerticalScrollbar
 import ca.gosyer.jui.uicore.components.rememberScrollbarAdapter
 import ca.gosyer.jui.uicore.components.scrollbarPadding
 import ca.gosyer.jui.uicore.resources.stringResource
-import com.google.accompanist.pager.HorizontalPager
+import com.google.accompanist.pager.ExperimentalPagerApi
 import com.google.accompanist.pager.pagerTabIndicatorOffset
-import com.google.accompanist.pager.rememberPagerState
 import dev.icerock.moko.resources.StringResource
 import kotlinx.coroutines.launch
 
 enum class LibrarySheetTabs(val res: StringResource) {
     FILTERS(MR.strings.action_filter),
     SORT(MR.strings.library_sort),
-    DISPLAY(MR.strings.library_display)
+    DISPLAY(MR.strings.library_display),
 }
 
+@OptIn(ExperimentalPagerApi::class)
 @Composable
 fun LibrarySheet(
     libraryFilters: @Composable () -> Unit,
     librarySort: @Composable () -> Unit,
-    libraryDisplay: @Composable () -> Unit
+    libraryDisplay: @Composable () -> Unit,
 ) {
     val pagerState = rememberPagerState()
     val selectedPage = pagerState.currentPage
@@ -53,9 +57,9 @@ fun LibrarySheet(
             selectedTabIndex = pagerState.currentPage,
             indicator = { tabPositions ->
                 TabRowDefaults.Indicator(
-                    Modifier.pagerTabIndicatorOffset(pagerState, tabPositions)
+                    Modifier.pagerTabIndicatorOffset(pagerState, tabPositions),
                 )
-            }
+            },
         ) {
             LibrarySheetTabs.values().asList().fastForEachIndexed { index, tab ->
                 Tab(
@@ -63,20 +67,20 @@ fun LibrarySheet(
                     onClick = {
                         scope.launch { pagerState.animateScrollToPage(index) }
                     },
-                    text = { Text(stringResource(tab.res)) }
+                    text = { Text(stringResource(tab.res)) },
                 )
             }
         }
         HorizontalPager(
-            count = LibrarySheetTabs.values().size,
+            pageCount = LibrarySheetTabs.values().size,
             state = pagerState,
-            verticalAlignment = Alignment.Top
+            verticalAlignment = Alignment.Top,
         ) {
             val scrollState = rememberScrollState()
             Box {
                 Column(
                     Modifier.fillMaxWidth()
-                        .verticalScroll(scrollState)
+                        .verticalScroll(scrollState),
                 ) {
                     when (it) {
                         LibrarySheetTabs.FILTERS.ordinal -> libraryFilters()
@@ -89,7 +93,7 @@ fun LibrarySheet(
                     rememberScrollbarAdapter(scrollState),
                     Modifier.align(Alignment.CenterEnd)
                         .fillMaxHeight()
-                        .scrollbarPadding()
+                        .scrollbarPadding(),
                 )
             }
         }

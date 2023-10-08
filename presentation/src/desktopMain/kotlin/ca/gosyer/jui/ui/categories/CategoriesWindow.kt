@@ -17,7 +17,6 @@ import ca.gosyer.jui.presentation.build.BuildKonfig
 import cafe.adriel.voyager.navigator.Navigator
 
 actual class CategoriesLauncher(private val notifyFinished: () -> Unit) {
-
     private var isOpen by mutableStateOf(false)
 
     actual fun open() {
@@ -30,7 +29,7 @@ actual class CategoriesLauncher(private val notifyFinished: () -> Unit) {
             Window(
                 onCloseRequest = { isOpen = false },
                 title = "${BuildKonfig.NAME} - Categories",
-                icon = painterResource("icon.png")
+                icon = painterResource("icon.png"),
             ) {
                 Navigator(remember { CategoriesScreen(notifyFinished) })
             }

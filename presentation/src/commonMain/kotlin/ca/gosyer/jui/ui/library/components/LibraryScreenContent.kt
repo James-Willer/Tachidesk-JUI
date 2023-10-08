@@ -16,13 +16,21 @@ import androidx.compose.foundation.gestures.forEachGesture
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.add
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.pager.PagerState
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.ModalBottomSheetLayout
 import androidx.compose.material.ModalBottomSheetValue
 import androidx.compose.material.Scaffold
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.FilterList
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -32,35 +40,39 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
-import ca.gosyer.jui.data.library.model.DisplayMode
-import ca.gosyer.jui.data.models.Category
+import ca.gosyer.jui.domain.base.WebsocketService
+import ca.gosyer.jui.domain.library.model.DisplayMode
 import ca.gosyer.jui.i18n.MR
 import ca.gosyer.jui.ui.base.navigation.ActionItem
 import ca.gosyer.jui.ui.base.navigation.BackHandler
+import ca.gosyer.jui.ui.base.navigation.OverflowMode
 import ca.gosyer.jui.ui.base.navigation.Toolbar
 import ca.gosyer.jui.ui.library.CategoryState
+import ca.gosyer.jui.ui.library.LibraryState
 import ca.gosyer.jui.ui.library.settings.LibrarySheet
 import ca.gosyer.jui.ui.library.settings.LibrarySideMenu
+import ca.gosyer.jui.uicore.components.ErrorScreen
 import ca.gosyer.jui.uicore.components.LoadingScreen
+import ca.gosyer.jui.uicore.insets.navigationBars
+import ca.gosyer.jui.uicore.insets.statusBars
 import ca.gosyer.jui.uicore.resources.stringResource
-import com.google.accompanist.pager.PagerState
-import com.google.accompanist.pager.rememberPagerState
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.toImmutableList
 
 @Composable
 fun LibraryScreenContent(
-    categories: List<Category>,
+    libraryState: LibraryState,
     selectedCategoryIndex: Int,
     displayMode: DisplayMode,
     gridColumns: Int,
     gridSize: Int,
-    isLoading: Boolean,
-    error: String?,
     query: String,
     updateQuery: (String) -> Unit,
     getLibraryForPage: @Composable (Long) -> State<CategoryState>,
     onPageChanged: (Int) -> Unit,
     onClickManga: (Long) -> Unit,
     onRemoveMangaClicked: (Long) -> Unit,
+    onUpdateLibrary: () -> Unit,
     showingMenu: Boolean,
     setShowingMenu: (Boolean) -> Unit,
     libraryFilters: @Composable () -> Unit,
@@ -69,7 +81,9 @@ fun LibraryScreenContent(
     showUnread: Boolean,
     showDownloaded: Boolean,
     showLanguage: Boolean,
-    showLocal: Boolean
+    showLocal: Boolean,
+    updateWebsocketStatus: WebsocketService.Status,
+    restartLibraryUpdates: () -> Unit,
 ) {
     BackHandler(showingMenu) {
         setShowingMenu(false)
@@ -90,19 +104,18 @@ fun LibraryScreenContent(
         if (maxWidth > 720.dp) {
             WideLibraryScreenContent(
                 pagerState = pagerState,
-                categories = categories,
+                libraryState = libraryState,
                 selectedCategoryIndex = selectedCategoryIndex,
                 displayMode = displayMode,
                 gridColumns = gridColumns,
                 gridSize = gridSize,
-                isLoading = isLoading,
-                error = error,
                 query = query,
                 updateQuery = updateQuery,
                 getLibraryForPage = getLibraryForPage,
                 onPageChanged = onPageChanged,
                 onClickManga = onClickManga,
                 onRemoveMangaClicked = onRemoveMangaClicked,
+                onUpdateLibrary = onUpdateLibrary,
                 showingMenu = showingMenu,
                 setShowingMenu = setShowingMenu,
                 libraryFilters = libraryFilters,
@@ -111,24 +124,23 @@ fun LibraryScreenContent(
                 showUnread = showUnread,
                 showDownloaded = showDownloaded,
                 showLanguage = showLanguage,
-                showLocal = showLocal
+                showLocal = showLocal,
             )
         } else {
             ThinLibraryScreenContent(
                 pagerState = pagerState,
-                categories = categories,
+                libraryState = libraryState,
                 selectedCategoryIndex = selectedCategoryIndex,
                 displayMode = displayMode,
                 gridColumns = gridColumns,
                 gridSize = gridSize,
-                isLoading = isLoading,
-                error = error,
                 query = query,
                 updateQuery = updateQuery,
                 getLibraryForPage = getLibraryForPage,
                 onPageChanged = onPageChanged,
                 onClickManga = onClickManga,
                 onRemoveMangaClicked = onRemoveMangaClicked,
+                onUpdateLibrary = onUpdateLibrary,
                 showingSheet = showingMenu,
                 setShowingSheet = setShowingMenu,
                 libraryFilters = libraryFilters,
@@ -137,7 +149,9 @@ fun LibraryScreenContent(
                 showUnread = showUnread,
                 showDownloaded = showDownloaded,
                 showLanguage = showLanguage,
-                showLocal = showLocal
+                showLocal = showLocal,
+                updateWebsocketStatus = updateWebsocketStatus,
+                restartLibraryUpdates = restartLibraryUpdates,
             )
         }
     }
@@ -146,19 +160,18 @@ fun LibraryScreenContent(
 @Composable
 fun WideLibraryScreenContent(
     pagerState: PagerState,
-    categories: List<Category>,
+    libraryState: LibraryState,
     selectedCategoryIndex: Int,
     displayMode: DisplayMode,
     gridColumns: Int,
     gridSize: Int,
-    isLoading: Boolean,
-    error: String?,
     query: String,
     updateQuery: (String) -> Unit,
     getLibraryForPage: @Composable (Long) -> State<CategoryState>,
     onPageChanged: (Int) -> Unit,
     onClickManga: (Long) -> Unit,
     onRemoveMangaClicked: (Long) -> Unit,
+    onUpdateLibrary: () -> Unit,
     showingMenu: Boolean,
     setShowingMenu: (Boolean) -> Unit,
     libraryFilters: @Composable () -> Unit,
@@ -167,9 +180,14 @@ fun WideLibraryScreenContent(
     showUnread: Boolean,
     showDownloaded: Boolean,
     showLanguage: Boolean,
-    showLocal: Boolean
+    showLocal: Boolean,
 ) {
     Scaffold(
+        modifier = Modifier.windowInsetsPadding(
+            WindowInsets.statusBars.add(
+                WindowInsets.navigationBars.only(WindowInsetsSides.Horizontal),
+            ),
+        ),
         topBar = {
             Column {
                 Toolbar(
@@ -178,61 +196,70 @@ fun WideLibraryScreenContent(
                     search = updateQuery,
                     actions = {
                         getActionItems(
-                            onToggleFiltersClick = { setShowingMenu(true) }
+                            onToggleFiltersClick = { setShowingMenu(true) },
+                            onUpdateLibrary = onUpdateLibrary,
                         )
-                    }
+                    },
                 )
-                LibraryTabs(
-                    visible = true, // vm.showCategoryTabs,
-                    pagerState = pagerState,
-                    categories = categories,
-                    selectedPage = selectedCategoryIndex,
-                    onPageChanged = onPageChanged
-                )
-            }
-        }
-    ) { padding ->
-        Box(Modifier.padding(padding)) {
-            if (categories.isEmpty()) {
-                LoadingScreen(isLoading, errorMessage = error)
-            } else {
-                LibraryPager(
-                    pagerState = pagerState,
-                    categories = categories,
-                    displayMode = displayMode,
-                    gridColumns = gridColumns,
-                    gridSize = gridSize,
-                    getLibraryForPage = getLibraryForPage,
-                    onClickManga = onClickManga,
-                    onRemoveMangaClicked = onRemoveMangaClicked,
-                    showUnread = showUnread,
-                    showDownloaded = showDownloaded,
-                    showLanguage = showLanguage,
-                    showLocal = showLocal
-                )
-
-                if (showingMenu) {
-                    Box(
-                        Modifier.fillMaxSize().pointerInput(isLoading) {
-                            forEachGesture {
-                                detectTapGestures {
-                                    setShowingMenu(false)
-                                }
-                            }
-                        }
+                if (libraryState is LibraryState.Loaded) {
+                    LibraryTabs(
+                        visible = true, // vm.showCategoryTabs,
+                        pagerState = pagerState,
+                        categories = libraryState.categories,
+                        selectedPage = selectedCategoryIndex,
+                        onPageChanged = onPageChanged,
                     )
                 }
-                AnimatedVisibility(
-                    showingMenu,
-                    enter = fadeIn() + slideInHorizontally(initialOffsetX = { it * 2 }),
-                    exit = fadeOut() + slideOutHorizontally(targetOffsetX = { it * 2 }),
-                    modifier = Modifier.align(Alignment.TopEnd)
-                ) {
-                    LibrarySideMenu(
-                        libraryFilters = libraryFilters,
-                        librarySort = librarySort,
-                        libraryDisplay = libraryDisplay
+            }
+        },
+    ) { padding ->
+        Box(Modifier.padding(padding)) {
+            when (libraryState) {
+                is LibraryState.Failed -> {
+                    ErrorScreen(libraryState.e.message)
+                }
+                LibraryState.Loading -> {
+                    LoadingScreen(true)
+                }
+                is LibraryState.Loaded -> {
+                    LibraryPager(
+                        pagerState = pagerState,
+                        categories = libraryState.categories,
+                        displayMode = displayMode,
+                        gridColumns = gridColumns,
+                        gridSize = gridSize,
+                        getLibraryForPage = getLibraryForPage,
+                        onClickManga = onClickManga,
+                        onRemoveMangaClicked = onRemoveMangaClicked,
+                        showUnread = showUnread,
+                        showDownloaded = showDownloaded,
+                        showLanguage = showLanguage,
+                        showLocal = showLocal,
                     )
+
+                    if (showingMenu) {
+                        Box(
+                            Modifier.fillMaxSize().pointerInput(Unit) {
+                                forEachGesture {
+                                    detectTapGestures {
+                                        setShowingMenu(false)
+                                    }
+                                }
+                            },
+                        )
+                    }
+                    AnimatedVisibility(
+                        showingMenu,
+                        enter = fadeIn() + slideInHorizontally(initialOffsetX = { it * 2 }),
+                        exit = fadeOut() + slideOutHorizontally(targetOffsetX = { it * 2 }),
+                        modifier = Modifier.align(Alignment.TopEnd),
+                    ) {
+                        LibrarySideMenu(
+                            libraryFilters = libraryFilters,
+                            librarySort = librarySort,
+                            libraryDisplay = libraryDisplay,
+                        )
+                    }
                 }
             }
         }
@@ -242,19 +269,18 @@ fun WideLibraryScreenContent(
 @Composable
 fun ThinLibraryScreenContent(
     pagerState: PagerState,
-    categories: List<Category>,
+    libraryState: LibraryState,
     selectedCategoryIndex: Int,
     displayMode: DisplayMode,
     gridColumns: Int,
     gridSize: Int,
-    isLoading: Boolean,
-    error: String?,
     query: String,
     updateQuery: (String) -> Unit,
     getLibraryForPage: @Composable (Long) -> State<CategoryState>,
     onPageChanged: (Int) -> Unit,
     onClickManga: (Long) -> Unit,
     onRemoveMangaClicked: (Long) -> Unit,
+    onUpdateLibrary: () -> Unit,
     showingSheet: Boolean,
     setShowingSheet: (Boolean) -> Unit,
     libraryFilters: @Composable () -> Unit,
@@ -263,7 +289,9 @@ fun ThinLibraryScreenContent(
     showUnread: Boolean,
     showDownloaded: Boolean,
     showLanguage: Boolean,
-    showLocal: Boolean
+    showLocal: Boolean,
+    updateWebsocketStatus: WebsocketService.Status,
+    restartLibraryUpdates: () -> Unit,
 ) {
     val bottomSheetState = rememberModalBottomSheetState(
         ModalBottomSheetValue.Hidden,
@@ -271,10 +299,11 @@ fun ThinLibraryScreenContent(
             when (it) {
                 ModalBottomSheetValue.Hidden -> setShowingSheet(false)
                 ModalBottomSheetValue.Expanded,
-                ModalBottomSheetValue.HalfExpanded -> setShowingSheet(true)
+                ModalBottomSheetValue.HalfExpanded,
+                -> setShowingSheet(true)
             }
             true
-        }
+        },
     )
     LaunchedEffect(showingSheet) {
         if (showingSheet) {
@@ -284,6 +313,11 @@ fun ThinLibraryScreenContent(
         }
     }
     Scaffold(
+        modifier = Modifier.windowInsetsPadding(
+            WindowInsets.statusBars.add(
+                WindowInsets.navigationBars.only(WindowInsetsSides.Horizontal),
+            ),
+        ),
         topBar = {
             Column {
                 Toolbar(
@@ -292,19 +326,24 @@ fun ThinLibraryScreenContent(
                     search = updateQuery,
                     actions = {
                         getActionItems(
-                            onToggleFiltersClick = { setShowingSheet(true) }
+                            onToggleFiltersClick = { setShowingSheet(true) },
+                            onUpdateLibrary = onUpdateLibrary,
+                            updateWebsocketStatus = updateWebsocketStatus,
+                            restartLibraryUpdates = restartLibraryUpdates,
                         )
-                    }
+                    },
                 )
-                LibraryTabs(
-                    visible = true, // vm.showCategoryTabs,
-                    pagerState = pagerState,
-                    categories = categories,
-                    selectedPage = selectedCategoryIndex,
-                    onPageChanged = onPageChanged
-                )
+                if (libraryState is LibraryState.Loaded) {
+                    LibraryTabs(
+                        visible = true, // vm.showCategoryTabs,
+                        pagerState = pagerState,
+                        categories = libraryState.categories,
+                        selectedPage = selectedCategoryIndex,
+                        onPageChanged = onPageChanged,
+                    )
+                }
             }
-        }
+        },
     ) { padding ->
         ModalBottomSheetLayout(
             sheetState = bottomSheetState,
@@ -313,27 +352,33 @@ fun ThinLibraryScreenContent(
                 LibrarySheet(
                     libraryFilters = libraryFilters,
                     librarySort = librarySort,
-                    libraryDisplay = libraryDisplay
+                    libraryDisplay = libraryDisplay,
                 )
-            }
+            },
         ) {
-            if (categories.isEmpty()) {
-                LoadingScreen(isLoading, errorMessage = error)
-            } else {
-                LibraryPager(
-                    pagerState = pagerState,
-                    categories = categories,
-                    displayMode = displayMode,
-                    gridColumns = gridColumns,
-                    gridSize = gridSize,
-                    getLibraryForPage = getLibraryForPage,
-                    onClickManga = onClickManga,
-                    onRemoveMangaClicked = onRemoveMangaClicked,
-                    showUnread = showUnread,
-                    showDownloaded = showDownloaded,
-                    showLanguage = showLanguage,
-                    showLocal = showLocal
-                )
+            when (libraryState) {
+                LibraryState.Loading -> {
+                    LoadingScreen(true)
+                }
+                is LibraryState.Failed -> {
+                    ErrorScreen(libraryState.e.message)
+                }
+                is LibraryState.Loaded -> {
+                    LibraryPager(
+                        pagerState = pagerState,
+                        categories = libraryState.categories,
+                        displayMode = displayMode,
+                        gridColumns = gridColumns,
+                        gridSize = gridSize,
+                        getLibraryForPage = getLibraryForPage,
+                        onClickManga = onClickManga,
+                        onRemoveMangaClicked = onRemoveMangaClicked,
+                        showUnread = showUnread,
+                        showDownloaded = showDownloaded,
+                        showLanguage = showLanguage,
+                        showLocal = showLocal,
+                    )
+                }
             }
         }
     }
@@ -343,12 +388,29 @@ fun ThinLibraryScreenContent(
 @Stable
 private fun getActionItems(
     onToggleFiltersClick: () -> Unit,
-): List<ActionItem> {
+    onUpdateLibrary: () -> Unit,
+    updateWebsocketStatus: WebsocketService.Status? = null,
+    restartLibraryUpdates: (() -> Unit)? = null,
+): ImmutableList<ActionItem> {
     return listOfNotNull(
         ActionItem(
             name = stringResource(MR.strings.action_filter),
             icon = Icons.Rounded.FilterList,
-            doAction = onToggleFiltersClick
-        )
-    )
+            doAction = onToggleFiltersClick,
+        ),
+        ActionItem(
+            name = stringResource(MR.strings.action_update_library),
+            icon = Icons.Rounded.Refresh,
+            doAction = onUpdateLibrary,
+        ),
+        if (updateWebsocketStatus == WebsocketService.Status.STOPPED && restartLibraryUpdates != null) {
+            ActionItem(
+                name = stringResource(MR.strings.action_restart_library),
+                overflowMode = OverflowMode.ALWAYS_OVERFLOW,
+                doAction = restartLibraryUpdates,
+            )
+        } else {
+            null
+        },
+    ).toImmutableList()
 }

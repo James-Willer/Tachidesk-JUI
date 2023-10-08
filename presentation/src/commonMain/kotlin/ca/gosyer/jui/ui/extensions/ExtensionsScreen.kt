@@ -9,18 +9,17 @@ package ca.gosyer.jui.ui.extensions
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import ca.gosyer.jui.ui.extensions.components.ExtensionsScreenContent
-import ca.gosyer.jui.uicore.vm.viewModel
+import ca.gosyer.jui.ui.viewModel
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.core.screen.ScreenKey
 import cafe.adriel.voyager.core.screen.uniqueScreenKey
 
 class ExtensionsScreen : Screen {
-
     override val key: ScreenKey = uniqueScreenKey
 
     @Composable
     override fun Content() {
-        val vm = viewModel<ExtensionsScreenViewModel>()
+        val vm = viewModel { extensionsViewModel() }
 
         ExtensionsScreenContent(
             extensions = vm.extensions.collectAsState().value,
@@ -30,9 +29,10 @@ class ExtensionsScreen : Screen {
             enabledLangs = vm.enabledLangs.collectAsState().value,
             availableLangs = vm.availableLangs.collectAsState().value,
             setEnabledLanguages = vm::setEnabledLanguages,
+            installExtensionFile = vm::install,
             installExtension = vm::install,
             updateExtension = vm::update,
-            uninstallExtension = vm::uninstall
+            uninstallExtension = vm::uninstall,
         )
     }
 }

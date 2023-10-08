@@ -40,7 +40,7 @@ fun LibrarySideMenu(
             val scrollState = rememberScrollState()
             Column(
                 Modifier.fillMaxWidth()
-                    .verticalScroll(scrollState)
+                    .verticalScroll(scrollState),
             ) {
                 TitleText(stringResource(MR.strings.action_filter))
                 libraryFilters()
@@ -56,7 +56,7 @@ fun LibrarySideMenu(
                 rememberScrollbarAdapter(scrollState),
                 Modifier.align(Alignment.CenterEnd)
                     .fillMaxHeight()
-                    .scrollbarPadding()
+                    .scrollbarPadding(),
             )
         }
     }

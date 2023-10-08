@@ -19,7 +19,7 @@ actual class FileSaver(
     private val onFileSelected: (Sink) -> Unit,
     private val onCancel: () -> Unit,
     private val onError: () -> Unit,
-    private val scope: CoroutineScope
+    private val scope: CoroutineScope,
 ) {
     private val fileChooser = JFileChooser()
         .apply {
@@ -40,7 +40,7 @@ actual class FileSaver(
 }
 
 @Composable
-actual fun rememberFileSaver(
+internal actual fun realRememberFileSaver(
     onFileSelected: (Sink) -> Unit,
     onCancel: () -> Unit,
     onError: () -> Unit,

@@ -20,6 +20,16 @@ kotlin {
             }
         }
     }
+    val configuration: org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget.() -> Unit = {
+        binaries {
+            framework {
+                baseName = "i18n"
+            }
+        }
+    }
+    iosX64(configure = configuration)
+    iosArm64(configure = configuration)
+    iosSimulatorArm64(configure = configuration)
 
     sourceSets {
         val commonMain by getting {
@@ -39,6 +49,9 @@ kotlin {
 
 tasks {
     registerLocalizationTask(project)
+
+    getByName("desktopProcessResources")
+        .dependsOn("generateMRcommonMain", "generateMRdesktopMain")
 }
 
 multiplatformResources {
@@ -46,7 +59,13 @@ multiplatformResources {
 }
 
 android {
+    namespace = "ca.gosyer.jui.i18n"
     lint {
         disable += "MissingTranslation"
+    }
+
+    sourceSets.getByName("main") {
+        assets.srcDir(File(buildDir, "generated/moko/androidMain/assets"))
+        res.srcDir(File(buildDir, "generated/moko/androidMain/res"))
     }
 }
