@@ -22,6 +22,7 @@ import ca.gosyer.jui.domain.manga.model.MangaMeta
 import ca.gosyer.jui.domain.reader.ReaderModeWatch
 import ca.gosyer.jui.domain.reader.model.Direction
 import ca.gosyer.jui.domain.reader.service.ReaderPreferences
+import ca.gosyer.jui.domain.server.Http
 import ca.gosyer.jui.ui.base.ChapterCache
 import ca.gosyer.jui.ui.base.image.BitmapDecoderFactory
 import ca.gosyer.jui.ui.base.model.StableHolder
@@ -82,6 +83,7 @@ class ReaderMenuViewModel
         private val updateMangaMeta: UpdateMangaMeta,
         private val updateChapterMeta: UpdateChapterMeta,
         private val chapterCache: ChapterCache,
+        private val http: Http,
         contextWrapper: ContextWrapper,
         @Assisted private val params: Params,
     ) : ViewModel(contextWrapper) {
@@ -115,7 +117,7 @@ class ReaderMenuViewModel
                         cur.orEmpty() +
                         ReaderPageSeparator(viewerChapters.currChapter, viewerChapters.nextChapter) +
                         next.orEmpty()
-                    ).toImmutableList()
+                ).toImmutableList()
             }
         }.stateIn(scope, SharingStarted.Eagerly, persistentListOf())
 
@@ -152,7 +154,7 @@ class ReaderMenuViewModel
 
         private val loader = ChapterLoader(
             readerPreferences = readerPreferences,
-            getChapterPage = getChapterPage,
+            http = http,
             chapterCache = chapterCache,
             bitmapDecoderFactory = BitmapDecoderFactory(contextWrapper),
         )
@@ -439,7 +441,10 @@ class ReaderMenuViewModel
             scope.cancel()
         }
 
-        data class Params(val chapterIndex: Int, val mangaId: Long)
+        data class Params(
+            val chapterIndex: Int,
+            val mangaId: Long,
+        )
 
         private companion object {
             private val log = logging()

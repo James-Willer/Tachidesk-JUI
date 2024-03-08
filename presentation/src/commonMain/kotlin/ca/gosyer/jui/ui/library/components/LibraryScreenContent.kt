@@ -12,7 +12,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.forEachGesture
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -20,8 +19,10 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.add
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
@@ -53,8 +54,6 @@ import ca.gosyer.jui.ui.library.settings.LibrarySheet
 import ca.gosyer.jui.ui.library.settings.LibrarySideMenu
 import ca.gosyer.jui.uicore.components.ErrorScreen
 import ca.gosyer.jui.uicore.components.LoadingScreen
-import ca.gosyer.jui.uicore.insets.navigationBars
-import ca.gosyer.jui.uicore.insets.statusBars
 import ca.gosyer.jui.uicore.resources.stringResource
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
@@ -90,7 +89,9 @@ fun LibraryScreenContent(
     }
 
     BoxWithConstraints {
-        val pagerState = rememberPagerState(selectedCategoryIndex)
+        val pagerState = rememberPagerState(selectedCategoryIndex) {
+            (libraryState as? LibraryState.Loaded)?.categories?.size ?: 1
+        }
         LaunchedEffect(pagerState.isScrollInProgress to pagerState.currentPage) {
             if (!pagerState.isScrollInProgress && pagerState.currentPage != selectedCategoryIndex) {
                 onPageChanged(pagerState.currentPage)
@@ -203,7 +204,8 @@ fun WideLibraryScreenContent(
                 )
                 if (libraryState is LibraryState.Loaded) {
                     LibraryTabs(
-                        visible = true, // vm.showCategoryTabs,
+                        // visible = vm.showCategoryTabs,
+                        visible = true,
                         pagerState = pagerState,
                         categories = libraryState.categories,
                         selectedPage = selectedCategoryIndex,
@@ -240,11 +242,7 @@ fun WideLibraryScreenContent(
                     if (showingMenu) {
                         Box(
                             Modifier.fillMaxSize().pointerInput(Unit) {
-                                forEachGesture {
-                                    detectTapGestures {
-                                        setShowingMenu(false)
-                                    }
-                                }
+                                detectTapGestures(onTap = { setShowingMenu(false) })
                             },
                         )
                     }
@@ -295,7 +293,7 @@ fun ThinLibraryScreenContent(
 ) {
     val bottomSheetState = rememberModalBottomSheetState(
         ModalBottomSheetValue.Hidden,
-        confirmStateChange = {
+        confirmValueChange = {
             when (it) {
                 ModalBottomSheetValue.Hidden -> setShowingSheet(false)
                 ModalBottomSheetValue.Expanded,
@@ -335,7 +333,8 @@ fun ThinLibraryScreenContent(
                 )
                 if (libraryState is LibraryState.Loaded) {
                     LibraryTabs(
-                        visible = true, // vm.showCategoryTabs,
+                        // visible = vm.showCategoryTabs,
+                        visible = true,
                         pagerState = pagerState,
                         categories = libraryState.categories,
                         selectedPage = selectedCategoryIndex,
@@ -391,8 +390,8 @@ private fun getActionItems(
     onUpdateLibrary: () -> Unit,
     updateWebsocketStatus: WebsocketService.Status? = null,
     restartLibraryUpdates: (() -> Unit)? = null,
-): ImmutableList<ActionItem> {
-    return listOfNotNull(
+): ImmutableList<ActionItem> =
+    listOfNotNull(
         ActionItem(
             name = stringResource(MR.strings.action_filter),
             icon = Icons.Rounded.FilterList,
@@ -413,4 +412,3 @@ private fun getActionItems(
             null
         },
     ).toImmutableList()
-}

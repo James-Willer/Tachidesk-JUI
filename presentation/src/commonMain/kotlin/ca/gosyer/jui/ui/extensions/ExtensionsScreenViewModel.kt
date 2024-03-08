@@ -93,7 +93,7 @@ class ExtensionsScreenViewModel
             scope.launch {
                 try {
                     val file = FileSystem.SYSTEM_TEMPORARY_DIRECTORY
-                        .resolve("tachidesk.${Random.nextLong()}.proto.gz")
+                        .resolve("tachidesk.${Random.nextLong()}.apk")
                         .also { file ->
                             source.saveTo(file)
                         }
@@ -225,6 +225,12 @@ class ExtensionsScreenViewModel
 
 @Immutable
 sealed class ExtensionUI {
-    data class Header(val header: String) : ExtensionUI()
-    data class ExtensionItem(val extension: Extension, val isWorking: Boolean = false) : ExtensionUI()
+    data class Header(
+        val header: String,
+    ) : ExtensionUI()
+
+    data class ExtensionItem(
+        val extension: Extension,
+        val isWorking: Boolean = false,
+    ) : ExtensionUI()
 }

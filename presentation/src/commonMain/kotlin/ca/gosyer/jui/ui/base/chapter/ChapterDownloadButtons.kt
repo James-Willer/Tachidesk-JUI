@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.CircularProgressIndicator
 import androidx.compose.material.ContentAlpha
+import androidx.compose.material.DropdownMenuItem
 import androidx.compose.material.Icon
 import androidx.compose.material.IconButton
 import androidx.compose.material.LocalContentColor
@@ -40,7 +41,6 @@ import ca.gosyer.jui.domain.download.model.DownloadState
 import ca.gosyer.jui.domain.manga.model.Manga
 import ca.gosyer.jui.i18n.MR
 import ca.gosyer.jui.uicore.components.DropdownIconButton
-import ca.gosyer.jui.uicore.components.DropdownMenuItem
 import ca.gosyer.jui.uicore.resources.stringResource
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -91,9 +91,7 @@ data class ChapterDownloadItem(
         _downloadState.value = ChapterDownloadState.NotDownloaded
     }
 
-    fun isSelected(selectedItems: List<Long>): Boolean {
-        return (chapter.id in selectedItems).also { _isSelected.value = it }
-    }
+    fun isSelected(selectedItems: List<Long>): Boolean = (chapter.id in selectedItems).also { _isSelected.value = it }
 }
 
 enum class ChapterDownloadState {

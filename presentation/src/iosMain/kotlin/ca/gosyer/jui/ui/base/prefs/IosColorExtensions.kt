@@ -7,6 +7,7 @@
 package ca.gosyer.jui.ui.base.prefs
 
 import androidx.compose.ui.graphics.Color
+import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.alloc
 import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.ptr
@@ -16,6 +17,7 @@ import platform.UIKit.UIColor
 
 fun Color.toUIColor() = UIColor(red = red.toDouble(), green = green.toDouble(), blue = blue.toDouble(), alpha = 1.0)
 
+@OptIn(ExperimentalForeignApi::class)
 internal actual fun Color.toHsv(): FloatArray =
     memScoped {
         val uiColor = toUIColor()
@@ -28,11 +30,10 @@ internal actual fun Color.toHsv(): FloatArray =
         floatArrayOf(hue.value.toFloat(), saturation.value.toFloat(), brightness.value.toFloat())
     }
 
-internal actual fun hexStringToColor(hex: String): Color? {
-    return try {
+internal actual fun hexStringToColor(hex: String): Color? =
+    try {
         val i = hex.removePrefix("#").toInt(16)
         Color(i shr 16 and 0xFF, i shr 8 and 0xFF, i and 0xFF)
     } catch (e: Exception) {
         null
     }
-}

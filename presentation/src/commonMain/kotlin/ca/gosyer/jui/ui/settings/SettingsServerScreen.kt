@@ -13,8 +13,10 @@ import androidx.compose.foundation.layout.add
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
@@ -40,8 +42,6 @@ import ca.gosyer.jui.ui.viewModel
 import ca.gosyer.jui.uicore.components.VerticalScrollbar
 import ca.gosyer.jui.uicore.components.rememberScrollbarAdapter
 import ca.gosyer.jui.uicore.components.scrollbarPadding
-import ca.gosyer.jui.uicore.insets.navigationBars
-import ca.gosyer.jui.uicore.insets.statusBars
 import ca.gosyer.jui.uicore.prefs.PreferenceMutableStateFlow
 import ca.gosyer.jui.uicore.prefs.asStateIn
 import ca.gosyer.jui.uicore.prefs.asStringStateIn
@@ -86,6 +86,7 @@ class SettingsServerScreen : Screen {
 
 expect class SettingsServerHostViewModel : ViewModel
 
+@Composable
 expect fun getServerHostItems(viewModel: @Composable () -> SettingsServerHostViewModel): LazyListScope.() -> Unit
 
 class SettingsServerViewModel
@@ -122,11 +123,13 @@ class SettingsServerViewModel
                 Auth.BASIC to stringResource(MR.strings.basic_auth),
                 Auth.DIGEST to stringResource(MR.strings.digest_auth),
             )
+
         val authUsername = serverPreferences.authUsername().asStateIn(scope)
         val authPassword = serverPreferences.authPassword().asStateIn(scope)
 
         private val _serverSettingChanged = MutableStateFlow(false)
         val serverSettingChanged = _serverSettingChanged.asStateFlow()
+
         fun serverSettingChanged() {
             _serverSettingChanged.value = true
         }

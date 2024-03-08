@@ -33,7 +33,6 @@ import ca.gosyer.jui.ui.base.chapter.ChapterDownloadState
 import ca.gosyer.jui.ui.base.model.StableHolder
 import ca.gosyer.jui.uicore.vm.ContextWrapper
 import ca.gosyer.jui.uicore.vm.ViewModel
-import cafe.adriel.voyager.core.model.coroutineScope
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
@@ -94,7 +93,7 @@ class MangaScreenViewModel
         private val loadingManga = MutableStateFlow(true)
         private val loadingChapters = MutableStateFlow(true)
         val isLoading = combine(loadingManga, loadingChapters) { a, b -> a || b }
-            .stateIn(coroutineScope, SharingStarted.Eagerly, true)
+            .stateIn(scope, SharingStarted.Eagerly, true)
 
         val categories = getCategories.asFlow(true)
             .map { it.toImmutableList() }
@@ -260,7 +259,9 @@ class MangaScreenViewModel
                 }
             }
         }
+
         fun markRead(id: Long?) = setRead(listOfNotNull(id).ifEmpty { _selectedIds.value }, true)
+
         fun markUnread(id: Long?) = setRead(listOfNotNull(id).ifEmpty { _selectedIds.value }, false)
 
         private fun setBookmarked(
@@ -274,7 +275,9 @@ class MangaScreenViewModel
                 }
             }
         }
+
         fun bookmarkChapter(id: Long?) = setBookmarked(listOfNotNull(id).ifEmpty { _selectedIds.value }, true)
+
         fun unBookmarkChapter(id: Long?) = setBookmarked(listOfNotNull(id).ifEmpty { _selectedIds.value }, false)
 
         fun markPreviousRead(index: Int) {
@@ -333,6 +336,7 @@ class MangaScreenViewModel
                 _selectedIds.value = _selectedIds.value.plus(id).toImmutableList()
             }
         }
+
         fun unselectChapter(id: Long) {
             scope.launch {
                 _selectedIds.value = _selectedIds.value.minus(id).toImmutableList()
@@ -386,7 +390,9 @@ class MangaScreenViewModel
                 ChapterDownloadItem(null, it)
             }.toImmutableList()
 
-        data class Params(val mangaId: Long)
+        data class Params(
+            val mangaId: Long,
+        )
 
         private companion object {
             private val log = logging()

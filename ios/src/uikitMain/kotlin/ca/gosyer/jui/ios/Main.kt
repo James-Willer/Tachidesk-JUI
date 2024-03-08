@@ -1,12 +1,12 @@
+@file:OptIn(ExperimentalForeignApi::class, BetaInteropApi::class)
+
 package ca.gosyer.jui.ios
 
 import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.sizeIn
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.Card
 import androidx.compose.material.Text
@@ -24,97 +24,48 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Application
+import androidx.compose.ui.window.ComposeUIViewController
 import ca.gosyer.jui.ui.base.theme.AppTheme
 import ca.gosyer.jui.ui.main.MainMenu
 import ca.gosyer.jui.uicore.vm.ContextWrapper
 import ca.gosyer.jui.uicore.vm.Length
-import kotlinx.cinterop.autoreleasepool
-import kotlinx.cinterop.cstr
-import kotlinx.cinterop.memScoped
-import kotlinx.cinterop.toCValues
-import kotlinx.cinterop.useContents
+import kotlinx.cinterop.BetaInteropApi
+import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
-import platform.Foundation.NSStringFromClass
-import platform.UIKit.UIApplication
-import platform.UIKit.UIApplicationDelegateProtocol
-import platform.UIKit.UIApplicationDelegateProtocolMeta
-import platform.UIKit.UIApplicationMain
-import platform.UIKit.UIResponder
-import platform.UIKit.UIResponderMeta
-import platform.UIKit.UIScreen
-import platform.UIKit.UIWindow
-import platform.UIKit.safeAreaInsets
+import platform.UIKit.UIViewController
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
-fun main() {
-    val args = emptyArray<String>()
-    memScoped {
-        val argc = args.size + 1
-        val argv = (arrayOf("skikoApp") + args).map { it.cstr.ptr }.toCValues()
-        autoreleasepool {
-            UIApplicationMain(argc, argv, null, NSStringFromClass(SkikoAppDelegate))
+fun initializeApplication(): UIViewController {
+    val appComponent = AppComponent.getInstance(ContextWrapper())
+
+    appComponent.migrations.runMigrations()
+    appComponent.appMigrations.runMigrations()
+
+    appComponent.downloadService.init()
+    appComponent.libraryUpdateService.init()
+
+    val uiHooks = appComponent.hooks
+    val context = appComponent.context
+
+    return ComposeUIViewController {
+        CompositionLocalProvider(*uiHooks) {
+            AppTheme {
+                Box(Modifier.fillMaxSize()) {
+                    MainMenu()
+                    ToastOverlay(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .padding(bottom = 64.dp),
+                        context = context,
+                    )
+                }
+            }
         }
     }
 }
-
-class SkikoAppDelegate
-    @OverrideInit
-    constructor() : UIResponder(), UIApplicationDelegateProtocol {
-        companion object : UIResponderMeta(), UIApplicationDelegateProtocolMeta
-
-        private var _window: UIWindow? = null
-        override fun window() = _window
-        override fun setWindow(window: UIWindow?) {
-            _window = window
-        }
-
-        private val context = ContextWrapper()
-
-        private val appComponent = AppComponent.getInstance(context)
-
-        init {
-            appComponent.migrations.runMigrations()
-            appComponent.appMigrations.runMigrations()
-
-            appComponent.downloadService.init()
-            appComponent.libraryUpdateService.init()
-        }
-
-        val uiHooks = appComponent.hooks
-
-        override fun application(
-            application: UIApplication,
-            didFinishLaunchingWithOptions: Map<Any?, *>?,
-        ): Boolean {
-            window = UIWindow(frame = UIScreen.mainScreen.bounds).apply {
-                val insets = safeAreaInsets.useContents {
-                    WindowInsets(left.dp, top.dp, right.dp, bottom.dp)
-                }
-
-                rootViewController = Application("Tachidesk-JUI") {
-                    CompositionLocalProvider(*uiHooks) {
-                        AppTheme {
-                            Box(Modifier.fillMaxSize().windowInsetsPadding(insets)) {
-                                MainMenu()
-                                ToastOverlay(
-                                    modifier = Modifier
-                                        .align(Alignment.BottomCenter)
-                                        .padding(bottom = 64.dp),
-                                    context = context,
-                                )
-                            }
-                        }
-                    }
-                }
-                makeKeyAndVisible()
-            }
-            return true
-        }
-    }
 
 @Composable
 fun ToastOverlay(

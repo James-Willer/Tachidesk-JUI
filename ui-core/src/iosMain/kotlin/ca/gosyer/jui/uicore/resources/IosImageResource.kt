@@ -15,6 +15,7 @@ import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import dev.icerock.moko.resources.ImageResource
+import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.get
 import org.jetbrains.skia.ColorAlphaType
 import org.jetbrains.skia.ColorType
@@ -42,6 +43,7 @@ actual fun ImageResource.toPainter(): Painter {
 
 // Taken from https://github.com/touchlab/DroidconKotlin/blob/main/shared-ui/src/iosMain/kotlin/co/touchlab/droidcon/ui/util/ToSkiaImage.kt
 // TODO: Add support for remaining color spaces when the Skia library supports them.
+@OptIn(ExperimentalForeignApi::class)
 private fun UIImage.toSkiaImage(): Image? {
     val imageRef = CGImageCreateCopyWithColorSpace(this.CGImage, CGColorSpaceCreateDeviceRGB()) ?: return null
 
@@ -55,9 +57,16 @@ private fun UIImage.toSkiaImage(): Image? {
     val alphaInfo = CGImageGetAlphaInfo(imageRef)
 
     val alphaType = when (alphaInfo) {
-        CGImageAlphaInfo.kCGImageAlphaPremultipliedFirst, CGImageAlphaInfo.kCGImageAlphaPremultipliedLast -> ColorAlphaType.PREMUL
-        CGImageAlphaInfo.kCGImageAlphaFirst, CGImageAlphaInfo.kCGImageAlphaLast -> ColorAlphaType.UNPREMUL
-        CGImageAlphaInfo.kCGImageAlphaNone, CGImageAlphaInfo.kCGImageAlphaNoneSkipFirst, CGImageAlphaInfo.kCGImageAlphaNoneSkipLast -> ColorAlphaType.OPAQUE
+        CGImageAlphaInfo.kCGImageAlphaPremultipliedFirst,
+        CGImageAlphaInfo.kCGImageAlphaPremultipliedLast,
+        -> ColorAlphaType.PREMUL
+        CGImageAlphaInfo.kCGImageAlphaFirst,
+        CGImageAlphaInfo.kCGImageAlphaLast,
+        -> ColorAlphaType.UNPREMUL
+        CGImageAlphaInfo.kCGImageAlphaNone,
+        CGImageAlphaInfo.kCGImageAlphaNoneSkipFirst,
+        CGImageAlphaInfo.kCGImageAlphaNoneSkipLast,
+        -> ColorAlphaType.OPAQUE
         else -> ColorAlphaType.UNKNOWN
     }
 
@@ -68,7 +77,12 @@ private fun UIImage.toSkiaImage(): Image? {
     CFRelease(imageRef)
 
     return Image.makeRaster(
-        imageInfo = ImageInfo(width = width, height = height, colorType = ColorType.RGBA_8888, alphaType = alphaType),
+        imageInfo = ImageInfo(
+            width = width,
+            height = height,
+            colorType = ColorType.RGBA_8888,
+            alphaType = alphaType,
+        ),
         bytes = byteArray,
         rowBytes = bytesPerRow.toInt(),
     )

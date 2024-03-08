@@ -36,7 +36,9 @@ import com.google.accompanist.pager.pagerTabIndicatorOffset
 import dev.icerock.moko.resources.StringResource
 import kotlinx.coroutines.launch
 
-enum class LibrarySheetTabs(val res: StringResource) {
+enum class LibrarySheetTabs(
+    val res: StringResource,
+) {
     FILTERS(MR.strings.action_filter),
     SORT(MR.strings.library_sort),
     DISPLAY(MR.strings.library_display),
@@ -49,7 +51,7 @@ fun LibrarySheet(
     librarySort: @Composable () -> Unit,
     libraryDisplay: @Composable () -> Unit,
 ) {
-    val pagerState = rememberPagerState()
+    val pagerState = rememberPagerState { LibrarySheetTabs.values().size }
     val selectedPage = pagerState.currentPage
     val scope = rememberCoroutineScope()
     Column(Modifier.fillMaxSize()) {
@@ -72,7 +74,6 @@ fun LibrarySheet(
             }
         }
         HorizontalPager(
-            pageCount = LibrarySheetTabs.values().size,
             state = pagerState,
             verticalAlignment = Alignment.Top,
         ) {

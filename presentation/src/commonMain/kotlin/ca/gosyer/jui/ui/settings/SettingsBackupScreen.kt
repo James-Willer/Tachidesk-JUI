@@ -13,9 +13,11 @@ import androidx.compose.foundation.layout.add
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -57,8 +59,6 @@ import ca.gosyer.jui.ui.viewModel
 import ca.gosyer.jui.uicore.components.VerticalScrollbar
 import ca.gosyer.jui.uicore.components.rememberScrollbarAdapter
 import ca.gosyer.jui.uicore.components.scrollbarPadding
-import ca.gosyer.jui.uicore.insets.navigationBars
-import ca.gosyer.jui.uicore.insets.statusBars
 import ca.gosyer.jui.uicore.resources.stringResource
 import ca.gosyer.jui.uicore.vm.ContextWrapper
 import ca.gosyer.jui.uicore.vm.ViewModel
@@ -137,11 +137,12 @@ class SettingsBackupViewModel
         val creatingStatus = _creatingStatus.asStateFlow()
         private val _createFlow = MutableSharedFlow<String>()
         val createFlowHolder = StableHolder(_createFlow.asSharedFlow())
+
         fun restoreFile(source: Source) {
             scope.launch {
                 val file = try {
                     FileSystem.SYSTEM_TEMPORARY_DIRECTORY
-                        .resolve("tachidesk.${Random.nextLong()}.proto.gz")
+                        .resolve("tachidesk.${Random.nextLong()}.tachibk")
                         .also { file ->
                             source.saveTo(file)
                         }
@@ -267,10 +268,15 @@ class SettingsBackupViewModel
     }
 
 sealed class Status {
-    object Nothing : Status()
-    data class InProgress(val progress: Float?) : Status()
-    object Success : Status()
-    object Error : Status()
+    data object Nothing : Status()
+
+    data class InProgress(
+        val progress: Float?,
+    ) : Status()
+
+    data object Success : Status()
+
+    data object Error : Status()
 }
 
 @Composable

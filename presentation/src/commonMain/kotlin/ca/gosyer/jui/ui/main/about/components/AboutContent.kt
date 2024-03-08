@@ -19,9 +19,11 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -52,8 +54,6 @@ import ca.gosyer.jui.ui.main.components.bottomNav
 import ca.gosyer.jui.uicore.components.VerticalScrollbar
 import ca.gosyer.jui.uicore.components.rememberScrollbarAdapter
 import ca.gosyer.jui.uicore.components.scrollbarPadding
-import ca.gosyer.jui.uicore.insets.navigationBars
-import ca.gosyer.jui.uicore.insets.statusBars
 import ca.gosyer.jui.uicore.resources.stringResource
 import ca.gosyer.jui.uicore.resources.toPainter
 import com.google.accompanist.flowlayout.FlowMainAxisAlignment
@@ -223,11 +223,20 @@ private fun OpenSourceLicenses(openSourceLicenses: () -> Unit) {
 }
 
 sealed class LinkIcon {
-    data class Resource(val res: ImageResource) : LinkIcon()
-    data class Icon(val icon: ImageVector) : LinkIcon()
+    data class Resource(
+        val res: ImageResource,
+    ) : LinkIcon()
+
+    data class Icon(
+        val icon: ImageVector,
+    ) : LinkIcon()
 }
 
-enum class Link(val nameRes: StringResource, val icon: LinkIcon, val uri: String) {
+enum class Link(
+    val nameRes: StringResource,
+    val icon: LinkIcon,
+    val uri: String,
+) {
     Github(MR.strings.github, LinkIcon.Resource(MR.images.github), "https://github.com/Suwayomi/Tachidesk-JUI"),
     Discord(MR.strings.discord, LinkIcon.Resource(MR.images.discord), "https://discord.gg/DDZdqZWaHA"),
     Reddit(MR.strings.reddit, LinkIcon.Resource(MR.images.reddit), "https://reddit.com/r/Tachidesk/"),

@@ -12,17 +12,20 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.forEachGesture
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.add
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.material.DropdownMenu
+import androidx.compose.material.DropdownMenuItem
 import androidx.compose.material.ExtendedFloatingActionButton
 import androidx.compose.material.Icon
 import androidx.compose.material.ModalBottomSheetLayout
@@ -58,11 +61,7 @@ import ca.gosyer.jui.ui.base.navigation.Toolbar
 import ca.gosyer.jui.ui.main.components.bottomNav
 import ca.gosyer.jui.ui.sources.browse.filter.SourceFiltersMenu
 import ca.gosyer.jui.ui.sources.browse.filter.model.SourceFiltersView
-import ca.gosyer.jui.uicore.components.DropdownMenu
-import ca.gosyer.jui.uicore.components.DropdownMenuItem
 import ca.gosyer.jui.uicore.components.LoadingScreen
-import ca.gosyer.jui.uicore.insets.navigationBars
-import ca.gosyer.jui.uicore.insets.statusBars
 import ca.gosyer.jui.uicore.resources.stringResource
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
@@ -228,11 +227,7 @@ private fun SourceWideScreenContent(
             if (showingFilters && !isLatest) {
                 Box(
                     Modifier.fillMaxSize().pointerInput(loading) {
-                        forEachGesture {
-                            detectTapGestures {
-                                setShowingFilters(false)
-                            }
-                        }
+                        detectTapGestures(onTap = { setShowingFilters(false) })
                     },
                 )
             }
@@ -287,7 +282,7 @@ private fun SourceThinScreenContent(
 ) {
     val bottomSheetState = rememberModalBottomSheetState(
         ModalBottomSheetValue.Hidden,
-        confirmStateChange = {
+        confirmValueChange = {
             when (it) {
                 ModalBottomSheetValue.Hidden -> setShowingFilters(false)
                 ModalBottomSheetValue.Expanded,
@@ -364,11 +359,7 @@ private fun SourceThinScreenContent(
                 if (showingFilters && !isLatest) {
                     Box(
                         Modifier.fillMaxSize().pointerInput(loading) {
-                            forEachGesture {
-                                detectTapGestures {
-                                    setShowingFilters(false)
-                                }
-                            }
+                            detectTapGestures(onTap = { setShowingFilters(false) })
                         },
                     )
                 }
@@ -531,8 +522,8 @@ private fun getActionItems(
     onToggleFiltersClick: () -> Unit,
     onClickMode: () -> Unit,
     openDisplayModeSelect: () -> Unit,
-): ImmutableList<ActionItem> {
-    return listOfNotNull(
+): ImmutableList<ActionItem> =
+    listOfNotNull(
         if (showFilterButton) {
             ActionItem(
                 name = stringResource(MR.strings.action_filter),
@@ -577,4 +568,3 @@ private fun getActionItems(
             null
         },
     ).toImmutableList()
-}

@@ -20,8 +20,10 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -55,8 +57,6 @@ import ca.gosyer.jui.uicore.components.HorizontalScrollbar
 import ca.gosyer.jui.uicore.components.VerticalScrollbar
 import ca.gosyer.jui.uicore.components.rememberScrollbarAdapter
 import ca.gosyer.jui.uicore.components.scrollbarPadding
-import ca.gosyer.jui.uicore.insets.navigationBars
-import ca.gosyer.jui.uicore.insets.statusBars
 import ca.gosyer.jui.uicore.resources.stringResource
 import kotlinx.collections.immutable.ImmutableList
 
@@ -190,10 +190,16 @@ fun GlobalSearchItem(
 
         Spacer(Modifier.height(4.dp))
         when (search) {
-            is Search.Failure -> Box(Modifier.fillMaxWidth().padding(vertical = 8.dp, horizontal = 16.dp), contentAlignment = Alignment.Center) {
+            is Search.Failure -> Box(
+                Modifier.fillMaxWidth().padding(vertical = 8.dp, horizontal = 16.dp),
+                contentAlignment = Alignment.Center,
+            ) {
                 ErrorScreen(search.e)
             }
-            Search.Searching -> Box(Modifier.fillMaxWidth().padding(vertical = 8.dp, horizontal = 16.dp), contentAlignment = Alignment.Center) {
+            Search.Searching -> Box(
+                Modifier.fillMaxWidth().padding(vertical = 8.dp, horizontal = 16.dp),
+                contentAlignment = Alignment.Center,
+            ) {
                 CircularProgressIndicator()
             }
             is Search.Success -> Box(

@@ -13,8 +13,10 @@ import androidx.compose.foundation.layout.add
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -40,8 +42,6 @@ import ca.gosyer.jui.ui.viewModel
 import ca.gosyer.jui.uicore.components.VerticalScrollbar
 import ca.gosyer.jui.uicore.components.rememberScrollbarAdapter
 import ca.gosyer.jui.uicore.components.scrollbarPadding
-import ca.gosyer.jui.uicore.insets.navigationBars
-import ca.gosyer.jui.uicore.insets.statusBars
 import ca.gosyer.jui.uicore.prefs.PreferenceMutableStateFlow
 import ca.gosyer.jui.uicore.resources.readTextAsync
 import ca.gosyer.jui.uicore.resources.stringResource
@@ -54,7 +54,6 @@ import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.toImmutableMap
 import kotlinx.datetime.Clock
-import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonArray
@@ -124,19 +123,16 @@ class SettingsGeneralViewModel
         }
 
         @Composable
-        fun getDateChoices(): ImmutableMap<String, String> {
-            return dateHandler.formatOptions
+        fun getDateChoices(): ImmutableMap<String, String> =
+            dateHandler.formatOptions
                 .associateWith {
                     it.ifEmpty { stringResource(MR.strings.date_system_default) } +
                         " (${getFormattedDate(it)})"
                 }
                 .toImmutableMap()
-        }
 
         @Composable
-        private fun getFormattedDate(prefValue: String): String {
-            return dateHandler.getDateFormat(prefValue).invoke(now)
-        }
+        private fun getFormattedDate(prefValue: String): String = dateHandler.getDateFormat(prefValue).invoke(now)
     }
 
 @Composable

@@ -87,7 +87,7 @@ dependencies {
     // Utility
     implementation(libs.dateTime)
     implementation(libs.immutableCollections)
-    implementation(libs.kds)
+    implementation(libs.korge.foundation)
 
     // Localization
     implementation(libs.moko.core)
@@ -166,7 +166,8 @@ compose.desktop {
                 "java.scripting",
                 "java.sql",
                 "jdk.crypto.ec",
-                "jdk.unsupported"
+                "jdk.unsupported",
+                "jdk.xml.dom"
             )
 
             packageName = if (!isPreview) {
@@ -185,6 +186,7 @@ compose.desktop {
             buildTypes.release.proguard {
                 version.set(libs.versions.proguard.get())
                 configurationFiles.from("proguard-rules.pro")
+                isEnabled = false
             }
 
             windows {
