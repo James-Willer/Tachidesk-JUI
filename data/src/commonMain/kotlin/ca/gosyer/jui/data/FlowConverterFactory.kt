@@ -6,13 +6,13 @@
 
 package ca.gosyer.jui.data
 
-import ca.gosyer.jui.core.lang.IO
 import de.jensklingenberg.ktorfit.Ktorfit
 import de.jensklingenberg.ktorfit.converter.Converter
 import de.jensklingenberg.ktorfit.internal.TypeData
 import io.ktor.client.call.body
 import io.ktor.client.statement.HttpResponse
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.IO
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
@@ -22,8 +22,8 @@ class FlowConverterFactory : Converter.Factory {
         val typeData: TypeData,
         val ktorfit: Ktorfit,
     ) : Converter.ResponseConverter<HttpResponse, Flow<Any?>> {
-        override fun convert(getResponse: suspend () -> HttpResponse): Flow<Any?> {
-            return flow {
+        override fun convert(getResponse: suspend () -> HttpResponse): Flow<Any?> =
+            flow {
                 val response = getResponse()
 
                 val convertedBody = ktorfit.nextSuspendResponseConverter(
@@ -33,7 +33,6 @@ class FlowConverterFactory : Converter.Factory {
                     ?: response.body(typeData.typeArgs.first().typeInfo)
                 emit(convertedBody)
             }.flowOn(Dispatchers.IO)
-        }
     }
 
     override fun responseConverter(

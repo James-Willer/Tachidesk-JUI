@@ -7,7 +7,6 @@
 package ca.gosyer.jui.core.prefs
 
 import com.russhwolf.settings.ObservableSettings
-import com.russhwolf.settings.SettingsListener
 import com.russhwolf.settings.serialization.decodeValue
 import com.russhwolf.settings.serialization.encodeValue
 import kotlinx.serialization.KSerializer
@@ -32,12 +31,6 @@ interface Adapter<T> {
         keys: Set<String>,
         key: String,
     ): Boolean = key in keys
-
-    fun addListener(
-        key: String,
-        preferences: ObservableSettings,
-        callback: () -> Unit,
-    ): SettingsListener
 }
 
 internal object StringAdapter : Adapter<String> {
@@ -55,23 +48,13 @@ internal object StringAdapter : Adapter<String> {
     ) {
         editor.putString(key, value)
     }
-
-    override fun addListener(
-        key: String,
-        preferences: ObservableSettings,
-        callback: () -> Unit,
-    ): SettingsListener {
-        return preferences.addStringOrNullListener(key) { callback() }
-    }
 }
 
 internal object LongAdapter : Adapter<Long> {
     override fun get(
         key: String,
         preferences: ObservableSettings,
-    ): Long {
-        return preferences.getLong(key, 0)
-    }
+    ): Long = preferences.getLong(key, 0)
 
     override fun set(
         key: String,
@@ -80,23 +63,13 @@ internal object LongAdapter : Adapter<Long> {
     ) {
         editor.putLong(key, value)
     }
-
-    override fun addListener(
-        key: String,
-        preferences: ObservableSettings,
-        callback: () -> Unit,
-    ): SettingsListener {
-        return preferences.addLongOrNullListener(key) { callback() }
-    }
 }
 
 internal object IntAdapter : Adapter<Int> {
     override fun get(
         key: String,
         preferences: ObservableSettings,
-    ): Int {
-        return preferences.getInt(key, 0)
-    }
+    ): Int = preferences.getInt(key, 0)
 
     override fun set(
         key: String,
@@ -105,23 +78,13 @@ internal object IntAdapter : Adapter<Int> {
     ) {
         editor.putInt(key, value)
     }
-
-    override fun addListener(
-        key: String,
-        preferences: ObservableSettings,
-        callback: () -> Unit,
-    ): SettingsListener {
-        return preferences.addIntOrNullListener(key) { callback() }
-    }
 }
 
 internal object FloatAdapter : Adapter<Float> {
     override fun get(
         key: String,
         preferences: ObservableSettings,
-    ): Float {
-        return preferences.getFloat(key, 0f)
-    }
+    ): Float = preferences.getFloat(key, 0f)
 
     override fun set(
         key: String,
@@ -130,23 +93,13 @@ internal object FloatAdapter : Adapter<Float> {
     ) {
         editor.putFloat(key, value)
     }
-
-    override fun addListener(
-        key: String,
-        preferences: ObservableSettings,
-        callback: () -> Unit,
-    ): SettingsListener {
-        return preferences.addFloatOrNullListener(key) { callback() }
-    }
 }
 
 internal object BooleanAdapter : Adapter<Boolean> {
     override fun get(
         key: String,
         preferences: ObservableSettings,
-    ): Boolean {
-        return preferences.getBoolean(key, false)
-    }
+    ): Boolean = preferences.getBoolean(key, false)
 
     override fun set(
         key: String,
@@ -154,14 +107,6 @@ internal object BooleanAdapter : Adapter<Boolean> {
         editor: ObservableSettings,
     ) {
         editor.putBoolean(key, value)
-    }
-
-    override fun addListener(
-        key: String,
-        preferences: ObservableSettings,
-        callback: () -> Unit,
-    ): SettingsListener {
-        return preferences.addBooleanOrNullListener(key) { callback() }
     }
 }
 
@@ -189,21 +134,7 @@ internal object StringSetAdapter : Adapter<Set<String>> {
     override fun isSet(
         keys: Set<String>,
         key: String,
-    ): Boolean {
-        return keys.contains("$key.size")
-    }
-
-    /**
-     * Watching the regular key doesn't produce updates for a string set for some reason
-     * TODO make better, doesn't produce updates when you add something and remove something
-     */
-    override fun addListener(
-        key: String,
-        preferences: ObservableSettings,
-        callback: () -> Unit,
-    ): SettingsListener {
-        return preferences.addIntOrNullListener("$key.size") { callback() }
-    }
+    ): Boolean = keys.contains("$key.size")
 }
 
 internal class ObjectAdapter<T>(
@@ -223,14 +154,6 @@ internal class ObjectAdapter<T>(
         editor: ObservableSettings,
     ) {
         editor.putString(key, serializer(value))
-    }
-
-    override fun addListener(
-        key: String,
-        preferences: ObservableSettings,
-        callback: () -> Unit,
-    ): SettingsListener {
-        return preferences.addStringOrNullListener(key) { callback() }
     }
 }
 
@@ -261,19 +184,5 @@ internal class JsonObjectAdapter<T>(
     override fun isSet(
         keys: Set<String>,
         key: String,
-    ): Boolean {
-        return keys.any { it.startsWith(key) }
-    }
-
-    /**
-     * Todo doesn't work
-     */
-    override fun addListener(
-        key: String,
-        preferences: ObservableSettings,
-        callback: () -> Unit,
-    ): SettingsListener {
-        @Suppress("DEPRECATION") // Because we don't care about the type, and it crashes with any other listener
-        return preferences.addListener(key) { callback() }
-    }
+    ): Boolean = keys.any { it.startsWith(key) }
 }

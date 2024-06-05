@@ -8,7 +8,6 @@ package ca.gosyer.jui.ui.reader.loader
 
 import androidx.compose.ui.unit.IntSize
 import ca.gosyer.jui.core.io.SYSTEM
-import ca.gosyer.jui.core.lang.IO
 import ca.gosyer.jui.core.lang.PriorityChannel
 import ca.gosyer.jui.core.lang.throwIfCancellation
 import ca.gosyer.jui.domain.reader.service.ReaderPreferences
@@ -31,6 +30,7 @@ import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsChannel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.IO
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.coroutineScope
@@ -154,8 +154,8 @@ class TachideskPageLoader(
         }
     }
 
-    private suspend fun getImageFromCache(page: ReaderPage): ReaderPage.ImageDecodeState {
-        return chapterCache.openSnapshot(page.cacheKey)?.use {
+    private suspend fun getImageFromCache(page: ReaderPage): ReaderPage.ImageDecodeState =
+        chapterCache.openSnapshot(page.cacheKey)?.use {
             it.source().use { source ->
                 val decoder = bitmapDecoderFactory.create(
                     ImageResult.OfSource(
@@ -183,7 +183,6 @@ class TachideskPageLoader(
                 }
             }
         } ?: ReaderPage.ImageDecodeState.FailedToGetSnapShot
-    }
 
     /**
      * Preloads the given [amount] of pages after the [currentPage] with a lower priority.

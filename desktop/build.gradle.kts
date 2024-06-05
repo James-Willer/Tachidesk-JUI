@@ -32,12 +32,14 @@ dependencies {
     implementation(libs.voyager.core)
     implementation(libs.voyager.navigation)
     implementation(libs.voyager.transitions)
+    implementation(libs.voyager.screenmodel)
     implementation(libs.accompanist.pager)
     implementation(libs.accompanist.pagerIndicators)
     implementation(libs.accompanist.flowLayout)
     implementation(libs.imageloader.core)
     implementation(libs.imageloader.moko)
     implementation(libs.materialDialogs.core)
+    implementation(libs.materialDialogs.datetime)
 
     // UI (Swing)
     implementation(libs.darklaf)
@@ -66,6 +68,10 @@ dependencies {
     // Ktorfit
     implementation(libs.ktorfit.lib)
     ksp(libs.ktorfit.ksp)
+
+    // Apollo GraphQL
+    implementation(libs.apollo.runtime)
+    implementation(libs.apollo.engine.ktor)
 
     // Logging
     implementation(libs.logging.slf4j.api)
@@ -171,11 +177,11 @@ compose.desktop {
             )
 
             packageName = if (!isPreview) {
-                "Tachidesk-JUI"
+                "Suwayomi-JUI"
             } else {
-                "Tachidesk-JUI Preview"
+                "Suwayomi-JUI Preview"
             }
-            description = "Tachidesk-JUI is a Jvm client for a Tachidesk Server"
+            description = "Suwayomi-JUI is a Jvm client for Suwayomi-Server"
             copyright = "Mozilla Public License v2.0"
             vendor = "Suwayomi"
             if (isPreview) {

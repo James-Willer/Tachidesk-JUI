@@ -22,6 +22,7 @@ import com.seiko.imageloader.component.ComponentRegistryBuilder
 import com.seiko.imageloader.component.fetcher.MokoResourceFetcher
 import com.seiko.imageloader.component.keyer.Keyer
 import com.seiko.imageloader.component.mapper.Mapper
+import com.seiko.imageloader.intercept.bitmapMemoryCacheConfig
 import com.seiko.imageloader.option.Options
 import com.seiko.imageloader.option.OptionsBuilder
 import io.ktor.http.Url
@@ -39,8 +40,8 @@ class ImageLoaderProvider
         @OptIn(DelicateCoroutinesApi::class)
         val serverUrl = serverPreferences.serverUrl().stateIn(GlobalScope)
 
-        fun get(imageCache: ImageCache): ImageLoader {
-            return ImageLoader {
+        fun get(imageCache: ImageCache): ImageLoader =
+            ImageLoader {
                 components {
                     register(context, http)
                     add(MokoResourceFetcher.Factory())
@@ -56,10 +57,9 @@ class ImageLoaderProvider
                 }
                 interceptor {
                     diskCache { imageCache }
-                    memoryCacheConfig { configure(context) }
+                    bitmapMemoryCacheConfig { configure(context) }
                 }
             }
-        }
 
         inner class MangaCoverMapper : Mapper<Url> {
             override fun map(

@@ -17,9 +17,7 @@ sealed class ServerHostPreference<T : Any> {
     protected abstract val defaultValue: T
     protected abstract val serverValue: T
 
-    private fun validate(value: T): Boolean {
-        return value != serverValue
-    }
+    private fun validate(value: T): Boolean = value != serverValue
 
     fun getProperty(): String? {
         val preference = preference().get().takeIf(::validate)
@@ -65,6 +63,15 @@ sealed class ServerHostPreference<T : Any> {
         override fun preference(): Preference<Boolean> = preferenceStore.getBoolean(propertyName, defaultValue)
     }
 
+    // Root
+    class RootPath(
+        preferenceStore: PreferenceStore,
+    ) : StringServerHostPreference(
+        preferenceStore,
+        "rootDir",
+        "",
+    )
+
     class IP(
         preferenceStore: PreferenceStore,
     ) : StringServerHostPreference(
@@ -81,49 +88,6 @@ sealed class ServerHostPreference<T : Any> {
             4567,
         )
 
-    // Proxy
-    class SocksProxyEnabled(
-        preferenceStore: PreferenceStore,
-    ) : BooleanServerHostPreference(
-            preferenceStore,
-            "socksProxyEnabled",
-            false,
-        )
-
-    class SocksProxyHost(
-        preferenceStore: PreferenceStore,
-    ) : StringServerHostPreference(
-            preferenceStore,
-            "socksProxyHost",
-            "",
-        )
-
-    class SocksProxyPort(
-        override val preferenceStore: PreferenceStore,
-    ) : IntServerHostPreference(
-            preferenceStore,
-            "socksProxyPort",
-            0,
-        )
-
-    // Misc
-    class DebugLogsEnabled(
-        preferenceStore: PreferenceStore,
-    ) : BooleanServerHostPreference(
-            preferenceStore,
-            "debugLogsEnabled",
-            false,
-        )
-
-    class SystemTrayEnabled(
-        preferenceStore: PreferenceStore,
-    ) : BooleanServerHostPreference(
-            preferenceStore,
-            "systemTrayEnabled",
-            false,
-            true,
-        )
-
     // Downloader
     class DownloadPath(
         preferenceStore: PreferenceStore,
@@ -133,31 +97,22 @@ sealed class ServerHostPreference<T : Any> {
             "",
         )
 
-    class DownloadAsCbz(
+    // Backup
+    class BackupPath(
         preferenceStore: PreferenceStore,
-    ) : BooleanServerHostPreference(
+    ) : StringServerHostPreference(
             preferenceStore,
-            "downloadAsCbz",
-            false,
+            "backupPath",
+            "",
         )
 
-    // WebUI
-    class WebUIEnabled(
+    // LocalSource
+    class LocalSourcePath(
         preferenceStore: PreferenceStore,
-    ) : BooleanServerHostPreference(
+    ) : StringServerHostPreference(
             preferenceStore,
-            "webUIEnabled",
-            false,
-            true,
-        )
-
-    class OpenInBrowserEnabled(
-        preferenceStore: PreferenceStore,
-    ) : BooleanServerHostPreference(
-            preferenceStore,
-            "initialOpenInBrowserEnabled",
-            false,
-            true,
+            "localSourcePath",
+            "",
         )
 
     // Authentication

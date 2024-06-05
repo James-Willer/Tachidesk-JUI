@@ -1,9 +1,9 @@
 #!/bin/bash
 
 if [[ "$*" == *"preview"* ]]; then
-    name="Tachidesk-JUI-Preview"
+    name="Suwayomi-JUI-Preview"
 else
-    name="Tachidesk-JUI"
+    name="Suwayomi-JUI"
 fi
 
 msi="$(find ./ -iname '*.msi' 2>/dev/null)"
@@ -16,13 +16,23 @@ if [ -f "$msi" ]; then
   fi
 fi
 
-dmg="$(find ./ -iname '*.dmg' 2>/dev/null)"
-if [ -f "$dmg" ]; then
-  dir="$(dirname "$dmg")"
-  version=$(tmp="${dmg%.*}" && echo "${tmp##*-}")
+dmg_x64="$(find ./runner-package-osx-x64/ -iname '*.dmg' 2>/dev/null)"
+if [ -f "$dmg_x64" ]; then
+  dir="$(dirname "$dmg_x64")"
+  version=$(tmp="${dmg_x64%.*}" && echo "${tmp##*-}")
 
-  if [ "$(basename "$dmg")" != "$name-macos-x64-$version.dmg" ]; then
-    mv "$dmg" "$dir/$name-macos-x64-$version.dmg"
+  if [ "$(basename "$dmg_x64")" != "$name-macos-x64-$version.dmg" ]; then
+    mv "$dmg_x64" "$dir/$name-macos-x64-$version.dmg"
+  fi
+fi
+
+dmg_arm64="$(find ./runner-package-osx-arm64/ -iname '*.dmg' 2>/dev/null)"
+if [ -f "$dmg_arm64" ]; then
+  dir="$(dirname "$dmg_arm64")"
+  version=$(tmp="${dmg_arm64%.*}" && echo "${tmp##*-}")
+
+  if [ "$(basename "$dmg_arm64")" != "$name-macos-m1-$version.dmg" ]; then
+    mv "$dmg_arm64" "$dir/$name-macos-m1-$version.dmg"
   fi
 fi
 

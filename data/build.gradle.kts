@@ -7,6 +7,7 @@ plugins {
     id(libs.plugins.buildkonfig.get().pluginId)
     id(libs.plugins.kotlinter.get().pluginId)
     id(libs.plugins.ktorfit.get().pluginId)
+    id(libs.plugins.apollo.get().pluginId)
 }
 
 kotlin {
@@ -61,6 +62,8 @@ kotlin {
                 api(libs.ktor.websockets)
                 api(libs.okio)
                 api(libs.dateTime)
+                api(libs.apollo.runtime)
+                api(libs.apollo.engine.ktor)
                 api(projects.core)
                 api(projects.i18n)
                 api(projects.domain)
@@ -119,4 +122,17 @@ buildkonfig {
 
 android {
     namespace = "ca.gosyer.jui.data"
+}
+
+apollo {
+    service("service") {
+        packageName.set("ca.gosyer.jui.data.graphql")
+        generateMethods.set(listOf("equalsHashCode"))
+        mapScalar("LongString","kotlin.Long", "ca.gosyer.jui.data.scalars.LongStringScalar")
+        mapScalarToUpload("Upload")
+        introspection {
+            endpointUrl.set("http://localhost:4567/api/graphql")
+            schemaFile.set(file("src/main/graphql/schema.graphqls"))
+        }
+    }
 }

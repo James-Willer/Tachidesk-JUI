@@ -4,11 +4,14 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-package ca.gosyer.jui.core.lang
+package ca.gosyer.jui.domain.library.model
 
-import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.IO
+import androidx.compose.runtime.Stable
+import kotlinx.serialization.Serializable
 
-val Dispatchers.IO: CoroutineDispatcher
-    get() = IO
+@Serializable
+@Stable
+enum class CategoryUpdateStatus {
+    UPDATING,
+    SKIPPED,
+}

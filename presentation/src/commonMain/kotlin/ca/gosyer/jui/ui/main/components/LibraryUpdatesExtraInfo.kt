@@ -39,18 +39,23 @@ fun LibraryUpdatesExtraInfo() {
 
     fun Map<JobStatus, List<*>>.getSize(jobStatus: JobStatus): Int = get(jobStatus)?.size ?: 0
     val current = remember(updateStatus) {
-        updateStatus.statusMap.run {
-            getSize(JobStatus.COMPLETE) + getSize(JobStatus.FAILED)
+        updateStatus.mangaStatusMap.run {
+            getSize(JobStatus.COMPLETE) + getSize(JobStatus.FAILED) + getSize(JobStatus.SKIPPED)
         }
     }
     val total = remember(updateStatus) {
-        updateStatus.statusMap.run {
-            getSize(JobStatus.COMPLETE) + getSize(JobStatus.FAILED) + getSize(JobStatus.PENDING) + getSize(JobStatus.RUNNING)
+        updateStatus.mangaStatusMap.run {
+            getSize(JobStatus.COMPLETE) +
+                getSize(JobStatus.FAILED) +
+                getSize(JobStatus.PENDING) +
+                getSize(JobStatus.RUNNING) +
+                getSize(JobStatus.SKIPPED)
         }
     }
 
     val text = when (serviceStatus) {
         WebsocketService.Status.STARTING -> stringResource(MR.strings.downloads_loading)
+
         WebsocketService.Status.RUNNING -> {
             if (updateStatus.running) {
                 stringResource(MR.strings.notification_updating, current, total)
@@ -58,6 +63,7 @@ fun LibraryUpdatesExtraInfo() {
                 null
             }
         }
+
         WebsocketService.Status.STOPPED -> null
     }
     if (!text.isNullOrBlank()) {

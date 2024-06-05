@@ -237,7 +237,7 @@ enum class Link(
     val icon: LinkIcon,
     val uri: String,
 ) {
-    Github(MR.strings.github, LinkIcon.Resource(MR.images.github), "https://github.com/Suwayomi/Tachidesk-JUI"),
+    Github(MR.strings.github, LinkIcon.Resource(MR.images.github), "https://github.com/Suwayomi/Suwayomi-JUI"),
     Discord(MR.strings.discord, LinkIcon.Resource(MR.images.discord), "https://discord.gg/DDZdqZWaHA"),
     Reddit(MR.strings.reddit, LinkIcon.Resource(MR.images.reddit), "https://reddit.com/r/Tachidesk/"),
 }
@@ -248,7 +248,7 @@ private fun LinkDisplay() {
     BoxWithConstraints {
         FlowRow(Modifier.fillMaxWidth(), mainAxisAlignment = FlowMainAxisAlignment.Center) {
             if (maxWidth > 720.dp) {
-                Link.values().asList().fastForEach {
+                Link.entries.fastForEach {
                     Column(
                         Modifier
                             .width(92.dp)
@@ -265,6 +265,7 @@ private fun LinkDisplay() {
                                 contentDescription = name,
                                 modifier = modifier,
                             )
+
                             is LinkIcon.Icon -> Icon(
                                 imageVector = it.icon.icon,
                                 contentDescription = name,
@@ -275,7 +276,7 @@ private fun LinkDisplay() {
                     }
                 }
             } else {
-                Link.values().asList().fastForEach {
+                Link.entries.fastForEach {
                     Box(
                         modifier = Modifier.clickable { uriHandler.openUri(it.uri) }
                             .padding(horizontal = 16.dp, vertical = 8.dp)
@@ -288,6 +289,7 @@ private fun LinkDisplay() {
                                 contentDescription = name,
                                 modifier = Modifier.fillMaxSize(),
                             )
+
                             is LinkIcon.Icon -> Icon(
                                 imageVector = it.icon.icon,
                                 contentDescription = name,
